@@ -1,7 +1,7 @@
 // IndexedDB helpers — ES module used by background.js and dashboard.js
 
 const DB_NAME = "crfDB";
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -58,6 +58,28 @@ function openDB() {
           // keyPath `id` is `${profileId}|${rcOfferId}`
           db.createObjectStore("disabledOffers", { keyPath: "id" });
         }
+      }
+
+      // v6: sailings keypath changes from [profileId, rcSailingId] to
+      // [profileId, offerId, rcSailingId]. The old shape silently overwrote
+      // a sailing whenever the same rcSailingId arrived under a different
+      // offer for the same profile (very common — Annual Tier covers
+      // everything plus you have specific offers covering subsets). The
+      // new shape stores one row per (profile, offer, sailing) tuple so
+      // disabling one offer doesn't make sailings disappear that are also
+      // covered by another offer. Wipes the sailings store; user re-syncs.
+      if (oldVersion < 6) {
+        if (db.objectStoreNames.contains("sailings")) db.deleteObjectStore("sailings");
+        const sailingStore = db.createObjectStore("sailings", {
+          keyPath: ["profileId", "offerId", "rcSailingId"],
+        });
+        sailingStore.createIndex("profileId", "profileId");
+        sailingStore.createIndex("rcSailingId", "rcSailingId");
+        sailingStore.createIndex("offerId", "offerId");
+        sailingStore.createIndex("sailDate", "sailDate");
+        sailingStore.createIndex("ship", "ship");
+        sailingStore.createIndex("region", "region");
+        sailingStore.createIndex("nights", "nights");
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -265,7 +287,10 @@ export async function getAllData() {
   }
 
   // Group sailings by rcSailingId, merging per-profile entries — skipping
-  // any sailing whose owning offer is disabled.
+  // any sailing whose owning offer is disabled. With the v6 schema, a
+  // single profile may have multiple rows for the same rcSailingId (one
+  // per offer that covers it); first non-disabled offer encountered wins
+  // for the per-profile display entry.
   const byRcSailingId = new Map();
   for (const s of sailings) {
     const k = offerKey(s.profileId, s.offerId);
@@ -300,8 +325,10 @@ export async function getAllData() {
       };
       byRcSailingId.set(s.rcSailingId, agg);
     }
-    agg.profiles[s.profileId] = profileEntry;
-    if (!agg.matchProfileIds.includes(s.profileId)) agg.matchProfileIds.push(s.profileId);
+    if (!agg.profiles[s.profileId]) {
+      agg.profiles[s.profileId] = profileEntry;
+      agg.matchProfileIds.push(s.profileId);
+    }
   }
 
   // Enrich offers with their sailing count + disabled flag for the manager UI
