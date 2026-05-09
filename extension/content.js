@@ -2,6 +2,9 @@
 // the page context (recorder.js, MAIN world) and the background service worker.
 
 (function () {
+  if (window.__crfContentInstalled) return;
+  window.__crfContentInstalled = true;
+
   // Trigger sync from popup/background
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg.type === "TRIGGER_SYNC") {
