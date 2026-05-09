@@ -376,10 +376,17 @@ function buildCard(s) {
   )];
   const roomBadges = rooms.map((r) => `<span class="badge badge-room">${esc(r)}</span>`).join("");
 
-  // Card row 1: ship · profile dots · badges · view-on-rc · reminder · star
+  // Unique offer codes across the profiles
+  const offerCodes = [...new Set(
+    (s.matchProfileIds || []).map((pid) => s.profiles?.[pid]?.offerId).filter(Boolean)
+  )];
+  const offerCodeTags = offerCodes.map((c) => `<span class="card-offer-code">${esc(c)}</span>`).join("");
+
+  // Card row 1: ship · offer codes · profile dots · badges · view-on-rc · reminder · star
   const row1 = `
     <div class="card-row1">
       <span class="card-ship">${esc(s.ship || "Unknown Ship")}</span>
+      ${offerCodeTags}
       <span class="profile-dots">${profileDots}</span>
       <div class="card-badges">
         ${matchBadge}
