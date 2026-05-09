@@ -158,7 +158,11 @@ html, body { background: var(--bg); color: var(--text); font-family: ui-sans-ser
 .modal-close { background: none; border: none; color: var(--muted); font-size: 22px; cursor: pointer; line-height: 1; padding: 0 6px; }
 .modal-close:hover { color: var(--text); }
 .modal-body { padding: 14px 18px; overflow-y: auto; flex: 1; }
-.modal-footer { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+.modal-footer { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; align-items: center; }
+.modal-status { flex: 1; font-size: 12px; color: var(--muted); }
+.modal-status.ok { color: #86efac; }
+.modal-status.error { color: #fca5a5; }
+.modal-status.info { color: #93c5fd; }
 .modal-empty { color: var(--muted); text-align: center; padding: 20px 0; }
 .btn-secondary { background: var(--panel2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 6px 12px; font: inherit; font-size: 12px; cursor: pointer; transition: border-color .15s; display: inline-block; }
 .btn-secondary:hover { border-color: var(--accent); }

@@ -495,6 +495,7 @@ function renderNamingBanner() {
 
 // ── Profile manager modal ──────────────────────────────────────────────────
 function openProfilesModal() {
+  setModalStatus("");
   renderProfilesModal();
   document.getElementById("profiles-modal").style.display = "";
 }
@@ -630,18 +631,48 @@ function countSailingsForProfile(profileId) {
 async function handleImportFile(e) {
   const file = e.target.files?.[0];
   if (!file) return;
+  setModalStatus(`Reading ${file.name}…`, "info");
+  console.log("[CRF] import: reading file", file.name, "size", file.size);
   try {
     const text = await file.text();
-    const json = JSON.parse(text);
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch (parseErr) {
+      throw new Error("File is not valid JSON: " + parseErr.message);
+    }
+    console.log("[CRF] import: parsed JSON, schema=", json?.schemaVersion, "offers=", json?.offers?.length, "sailings=", json?.sailings?.length, "profile=", json?.profile);
+    if (!json?.schemaVersion) throw new Error("Missing schemaVersion — not a CRF export file");
+    if (!Array.isArray(json.offers) || !Array.isArray(json.sailings)) {
+      throw new Error("Export is missing offers/sailings");
+    }
+
+    setModalStatus("Importing…", "info");
     const resp = await chrome.runtime.sendMessage({ type: "IMPORT_PROFILE", json });
+    console.log("[CRF] import: response", resp);
     if (!resp?.ok) throw new Error(resp?.error || "Import failed");
+
+    // Detect re-import into existing profile vs new profile creation
+    const incomingName = json.profile?.name || "Imported";
+    const existedBefore = profiles.some((p) => p.profileId === resp.profileId);
     await loadData();
     renderProfilesModal();
+
+    const verb = existedBefore ? "Re-imported into" : "Imported as new profile";
+    setModalStatus(`✓ ${verb} "${resp.name || incomingName}" — ${json.offers.length} offers, ${json.sailings.length} sailings`, "ok");
   } catch (err) {
-    setStatus("Import failed: " + err.message);
+    console.error("[CRF] import error", err);
+    setModalStatus("Import failed: " + err.message, "error");
   } finally {
     e.target.value = "";
   }
+}
+
+function setModalStatus(msg, kind) {
+  const el = document.getElementById("modal-status");
+  if (!el) return;
+  el.textContent = msg;
+  el.className = "modal-status" + (kind ? " " + kind : "");
 }
 
 // ── Reminders ──────────────────────────────────────────────────────────────
