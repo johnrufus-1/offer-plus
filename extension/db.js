@@ -1,30 +1,53 @@
 // IndexedDB helpers — ES module used by background.js and dashboard.js
 
 const DB_NAME = "crfDB";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 function openDB() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = (e) => {
       const db = e.target.result;
-      if (!db.objectStoreNames.contains("offers")) {
-        db.createObjectStore("offers", { keyPath: "rcOfferId" });
-      }
-      if (!db.objectStoreNames.contains("sailings")) {
-        const s = db.createObjectStore("sailings", { keyPath: "rcSailingId" });
-        s.createIndex("sailDate", "sailDate");
-        s.createIndex("ship", "ship");
-        s.createIndex("region", "region");
-        s.createIndex("nights", "nights");
-        s.createIndex("offerId", "offerId");
-      }
+
+      // Wipe-and-resync: any old offers/sailings stores get recreated with
+      // compound keys (`[profileId, rcOfferId]` / `[profileId, rcSailingId]`).
+      if (db.objectStoreNames.contains("offers")) db.deleteObjectStore("offers");
+      if (db.objectStoreNames.contains("sailings")) db.deleteObjectStore("sailings");
+
+      const offerStore = db.createObjectStore("offers", { keyPath: ["profileId", "rcOfferId"] });
+      offerStore.createIndex("profileId", "profileId");
+      offerStore.createIndex("rcOfferId", "rcOfferId");
+
+      const sailingStore = db.createObjectStore("sailings", { keyPath: ["profileId", "rcSailingId"] });
+      sailingStore.createIndex("profileId", "profileId");
+      sailingStore.createIndex("rcSailingId", "rcSailingId");
+      sailingStore.createIndex("sailDate", "sailDate");
+      sailingStore.createIndex("ship", "ship");
+      sailingStore.createIndex("region", "region");
+      sailingStore.createIndex("nights", "nights");
+      sailingStore.createIndex("offerId", "offerId");
+
       if (!db.objectStoreNames.contains("favorites")) {
         db.createObjectStore("favorites", { keyPath: "rcSailingId" });
       }
       if (!db.objectStoreNames.contains("reminders")) {
         const r = db.createObjectStore("reminders", { keyPath: "rcSailingId" });
         r.createIndex("fireAt", "fireAt");
+      }
+      if (!db.objectStoreNames.contains("profiles")) {
+        const p = db.createObjectStore("profiles", { keyPath: "profileId" });
+        p.createIndex("loyaltyId", "loyaltyId");
+        // Bootstrap a placeholder "Me" profile. The first sync rebinds it
+        // to the captured loyaltyId.
+        p.put({
+          profileId: "me",
+          name: "Me",
+          loyaltyId: null,
+          source: "live",
+          unnamed: false,
+          addedAt: new Date().toISOString(),
+          lastSyncAt: null,
+        });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -40,7 +63,111 @@ function storeGetAll(db, storeName) {
   });
 }
 
-export async function upsertOffers(payload) {
+// ── Profiles ───────────────────────────────────────────────────────────────
+export async function listProfiles() {
+  const db = await openDB();
+  return storeGetAll(db, "profiles");
+}
+
+export async function getProfile(profileId) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction("profiles", "readonly").objectStore("profiles").get(profileId);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// Find or create the profile that owns `loyaltyId`. First-ever sync rebinds
+// the bootstrap "me" profile to the captured loyaltyId. Subsequent unknown
+// loyaltyIds get a new profile with `unnamed: true` and a placeholder name.
+export async function ensureProfile(loyaltyId) {
+  if (!loyaltyId) throw new Error("loyaltyId required");
+  const db = await openDB();
+  const profiles = await storeGetAll(db, "profiles");
+
+  const existing = profiles.find((p) => p.loyaltyId === loyaltyId);
+  if (existing) return existing;
+
+  const me = profiles.find((p) => p.profileId === "me");
+  if (me && me.loyaltyId == null) {
+    me.loyaltyId = loyaltyId;
+    await putProfile(db, me);
+    return me;
+  }
+
+  const profileId = `acct-${loyaltyId}`;
+  const newProfile = {
+    profileId,
+    name: `Account ****${String(loyaltyId).slice(-4)}`,
+    loyaltyId,
+    source: "live",
+    unnamed: true,
+    addedAt: new Date().toISOString(),
+    lastSyncAt: null,
+  };
+  await putProfile(db, newProfile);
+  return newProfile;
+}
+
+function putProfile(db, profile) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("profiles", "readwrite");
+    tx.objectStore("profiles").put(profile);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function renameProfile(profileId, name) {
+  const db = await openDB();
+  const p = await getProfile(profileId);
+  if (!p) throw new Error("Profile not found");
+  p.name = name;
+  p.unnamed = false;
+  await putProfile(db, p);
+  return p;
+}
+
+export async function markProfileSynced(profileId) {
+  const db = await openDB();
+  const p = await getProfile(profileId);
+  if (!p) return null;
+  p.lastSyncAt = new Date().toISOString();
+  await putProfile(db, p);
+  return p;
+}
+
+export async function deleteProfile(profileId) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(["profiles", "offers", "sailings"], "readwrite");
+    tx.objectStore("profiles").delete(profileId);
+
+    // Cursor-delete offers and sailings owned by this profile.
+    deleteByProfileIndex(tx.objectStore("offers"), profileId);
+    deleteByProfileIndex(tx.objectStore("sailings"), profileId);
+
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+function deleteByProfileIndex(store, profileId) {
+  const idx = store.index("profileId");
+  const req = idx.openCursor(IDBKeyRange.only(profileId));
+  req.onsuccess = (e) => {
+    const cursor = e.target.result;
+    if (cursor) {
+      cursor.delete();
+      cursor.continue();
+    }
+  };
+}
+
+// ── Offers / Sailings ──────────────────────────────────────────────────────
+export async function upsertOffers(payload, profileId) {
+  if (!profileId) throw new Error("profileId required");
   const db = await openDB();
   const now = new Date().toISOString();
   let offerCount = 0;
@@ -53,6 +180,7 @@ export async function upsertOffers(payload) {
 
     for (const o of payload.offers) {
       offerStore.put({
+        profileId,
         rcOfferId: o.rcOfferId,
         title: o.title,
         description: o.description ?? null,
@@ -66,6 +194,7 @@ export async function upsertOffers(payload) {
 
       for (const s of o.sailings ?? []) {
         sailingStore.put({
+          profileId,
           rcSailingId: s.rcSailingId,
           offerId: o.rcOfferId,
           ship: s.ship,
@@ -89,33 +218,77 @@ export async function upsertOffers(payload) {
     tx.onerror = () => reject(tx.error);
   });
 
+  await markProfileSynced(profileId);
   return { offerCount, sailingCount, syncedAt: now };
 }
 
+// Returns aggregated rows: one entry per unique rcSailingId, with per-profile
+// offer data nested under .profiles[profileId]. Also returns the profiles list
+// and a summary count of offers/matches.
 export async function getAllData() {
   const db = await openDB();
-  const [offers, sailings, favIds, reminders] = await Promise.all([
+  const [profiles, offers, sailings, favIds, reminders] = await Promise.all([
+    storeGetAll(db, "profiles"),
     storeGetAll(db, "offers"),
     storeGetAll(db, "sailings"),
     getFavoriteIds(),
     storeGetAll(db, "reminders"),
   ]);
 
-  const offerMap = Object.fromEntries(offers.map((o) => [o.rcOfferId, o]));
+  const offerKey = (profileId, rcOfferId) => `${profileId}::${rcOfferId}`;
+  const offerMap = new Map(offers.map((o) => [offerKey(o.profileId, o.rcOfferId), o]));
   const favSet = new Set(favIds);
-  const reminderMap = Object.fromEntries(reminders.map((r) => [r.rcSailingId, r]));
+  const reminderMap = new Map(reminders.map((r) => [r.rcSailingId, r]));
 
-  const enriched = sailings.map((s) => ({
-    ...s,
-    portsOfCall: s.portsOfCall ? JSON.parse(s.portsOfCall) : [],
-    offer: offerMap[s.offerId] ?? null,
-    isFavorite: favSet.has(s.rcSailingId),
-    reminder: reminderMap[s.rcSailingId] ?? null,
-  }));
+  // Group sailings by rcSailingId, merging per-profile entries.
+  const byRcSailingId = new Map();
+  for (const s of sailings) {
+    const profileOffer = offerMap.get(offerKey(s.profileId, s.offerId)) || null;
+    const profileEntry = {
+      profileId: s.profileId,
+      offerId: s.offerId,
+      offer: profileOffer,
+      stateroomCategory: s.stateroomCategory,
+      priceAfterOffer: s.priceAfterOffer,
+      taxesFees: s.taxesFees,
+    };
 
-  return { offers, sailings: enriched };
+    let agg = byRcSailingId.get(s.rcSailingId);
+    if (!agg) {
+      agg = {
+        rcSailingId: s.rcSailingId,
+        ship: s.ship,
+        sailDate: s.sailDate,
+        returnDate: s.returnDate,
+        nights: s.nights,
+        itineraryName: s.itineraryName,
+        region: s.region,
+        departurePort: s.departurePort,
+        portsOfCall: s.portsOfCall ? JSON.parse(s.portsOfCall) : [],
+        profiles: {},
+        matchProfileIds: [],
+        isFavorite: favSet.has(s.rcSailingId),
+        reminder: reminderMap.get(s.rcSailingId) || null,
+      };
+      byRcSailingId.set(s.rcSailingId, agg);
+    }
+    agg.profiles[s.profileId] = profileEntry;
+    if (!agg.matchProfileIds.includes(s.profileId)) agg.matchProfileIds.push(s.profileId);
+  }
+
+  return {
+    profiles,
+    sailings: [...byRcSailingId.values()],
+    counts: {
+      profiles: profiles.length,
+      uniqueSailings: byRcSailingId.size,
+      totalOfferSailings: sailings.length,
+      matches: [...byRcSailingId.values()].filter((s) => s.matchProfileIds.length > 1).length,
+    },
+  };
 }
 
+// ── Favorites ──────────────────────────────────────────────────────────────
 export async function toggleFavorite(rcSailingId) {
   const db = await openDB();
   return new Promise((resolve, reject) => {
@@ -146,6 +319,7 @@ export async function getFavoriteIds() {
   });
 }
 
+// ── Reminders ──────────────────────────────────────────────────────────────
 export async function setReminder(rcSailingId, fireAt, offset, snapshot) {
   const db = await openDB();
   return new Promise((resolve, reject) => {
@@ -181,9 +355,79 @@ export async function getAllReminders() {
   });
 }
 
+// ── Last sync (across all profiles) ────────────────────────────────────────
 export async function getLastSync() {
+  const profiles = await listProfiles();
+  const stamps = profiles.map((p) => p.lastSyncAt).filter(Boolean);
+  if (!stamps.length) return null;
+  return stamps.reduce((latest, t) => (t > latest ? t : latest), "");
+}
+
+// ── Buddy export / import ──────────────────────────────────────────────────
+const EXPORT_SCHEMA_VERSION = 1;
+
+export async function exportProfileJson(profileId) {
   const db = await openDB();
-  const offers = await storeGetAll(db, "offers");
-  if (!offers.length) return null;
-  return offers.reduce((latest, o) => (o.syncedAt > latest ? o.syncedAt : latest), "");
+  const profile = await getProfile(profileId);
+  if (!profile) throw new Error("Profile not found");
+
+  const offers = await getAllByIndex(db, "offers", "profileId", profileId);
+  const sailings = await getAllByIndex(db, "sailings", "profileId", profileId);
+  return {
+    schemaVersion: EXPORT_SCHEMA_VERSION,
+    exportedAt: new Date().toISOString(),
+    profile: { name: profile.name, loyaltyId: profile.loyaltyId },
+    offers,
+    sailings,
+  };
+}
+
+function getAllByIndex(db, storeName, indexName, value) {
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(storeName, "readonly").objectStore(storeName).index(indexName).getAll(value);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function importProfileJson(json) {
+  if (!json || json.schemaVersion !== EXPORT_SCHEMA_VERSION) {
+    throw new Error("Incompatible export format");
+  }
+  const db = await openDB();
+  const incomingLoyaltyId = json.profile?.loyaltyId || null;
+
+  // If a profile with this loyaltyId already exists, re-upsert into it.
+  // Otherwise create a new imported profile.
+  let profile = null;
+  if (incomingLoyaltyId) {
+    const all = await listProfiles();
+    profile = all.find((p) => p.loyaltyId === incomingLoyaltyId) || null;
+  }
+  if (!profile) {
+    const profileId = `imported-${Math.random().toString(36).slice(2, 9)}`;
+    profile = {
+      profileId,
+      name: json.profile?.name || "Imported",
+      loyaltyId: incomingLoyaltyId,
+      source: "imported",
+      unnamed: false,
+      addedAt: new Date().toISOString(),
+      lastSyncAt: json.exportedAt || new Date().toISOString(),
+    };
+    await putProfile(db, profile);
+  }
+
+  // Re-stamp profileId on imported rows so they belong to the local profile.
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(["offers", "sailings"], "readwrite");
+    const offerStore = tx.objectStore("offers");
+    const sailingStore = tx.objectStore("sailings");
+    for (const o of json.offers || []) offerStore.put({ ...o, profileId: profile.profileId });
+    for (const s of json.sailings || []) sailingStore.put({ ...s, profileId: profile.profileId });
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+
+  return { profileId: profile.profileId, name: profile.name };
 }

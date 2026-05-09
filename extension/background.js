@@ -1,4 +1,10 @@
-import { upsertOffers, getAllData, getLastSync, toggleFavorite, setReminder, clearReminder, getAllReminders } from "./db.js";
+import {
+  upsertOffers, getAllData, getLastSync,
+  toggleFavorite,
+  setReminder, clearReminder, getAllReminders,
+  ensureProfile, listProfiles, renameProfile, deleteProfile,
+  exportProfileJson, importProfileJson,
+} from "./db.js";
 
 const ALARM_PREFIX = "reminder-";
 
@@ -88,9 +94,22 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     switch (msg.type) {
       case "SYNC": {
         try {
-          const result = await upsertOffers(msg.payload);
+          const { loyaltyId } = msg.payload || {};
+          if (!loyaltyId) {
+            sendResponse({ ok: false, error: "Couldn't identify your account — refresh the RC page and try again" });
+            break;
+          }
+          const profile = await ensureProfile(loyaltyId);
+          const result = await upsertOffers(msg.payload, profile.profileId);
           await chrome.storage.local.set({ lastSync: result.syncedAt });
-          sendResponse({ ok: true, body: { offers: result.offerCount, sailings: result.sailingCount } });
+          sendResponse({
+            ok: true,
+            body: {
+              offers: result.offerCount,
+              sailings: result.sailingCount,
+              profile: { id: profile.profileId, name: profile.name, unnamed: !!profile.unnamed },
+            },
+          });
         } catch (e) {
           console.error("[CRF background] sync error:", e);
           sendResponse({ ok: false, error: String(e) });
@@ -147,6 +166,60 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           await clearReminder(msg.rcSailingId);
           await chrome.alarms.clear(ALARM_PREFIX + msg.rcSailingId);
           sendResponse({ ok: true });
+        } catch (e) {
+          sendResponse({ ok: false, error: String(e) });
+        }
+        break;
+      }
+
+      case "LIST_PROFILES": {
+        try {
+          const profiles = await listProfiles();
+          sendResponse({ ok: true, profiles });
+        } catch (e) {
+          sendResponse({ ok: false, error: String(e) });
+        }
+        break;
+      }
+
+      case "RENAME_PROFILE": {
+        try {
+          const profile = await renameProfile(msg.profileId, msg.name);
+          sendResponse({ ok: true, profile });
+        } catch (e) {
+          sendResponse({ ok: false, error: String(e) });
+        }
+        break;
+      }
+
+      case "DELETE_PROFILE": {
+        try {
+          if (msg.profileId === "me") {
+            sendResponse({ ok: false, error: "Cannot delete your primary profile" });
+            break;
+          }
+          await deleteProfile(msg.profileId);
+          sendResponse({ ok: true });
+        } catch (e) {
+          sendResponse({ ok: false, error: String(e) });
+        }
+        break;
+      }
+
+      case "EXPORT_PROFILE": {
+        try {
+          const data = await exportProfileJson(msg.profileId);
+          sendResponse({ ok: true, data });
+        } catch (e) {
+          sendResponse({ ok: false, error: String(e) });
+        }
+        break;
+      }
+
+      case "IMPORT_PROFILE": {
+        try {
+          const result = await importProfileJson(msg.json);
+          sendResponse({ ok: true, ...result });
         } catch (e) {
           sendResponse({ ok: false, error: String(e) });
         }

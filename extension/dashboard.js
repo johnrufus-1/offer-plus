@@ -1,9 +1,22 @@
 // dashboard.js — Club Royale Finder full-tab dashboard
 
 // ── State ──────────────────────────────────────────────────────────────────
-let allSailings = [];
+let allSailings = [];           // aggregated by rcSailingId
+let profiles = [];              // [{ profileId, name, ... }]
+let counts = { profiles: 0, uniqueSailings: 0, totalOfferSailings: 0, matches: 0 };
 let favSet = new Set();
-let filters = { search: "", ships: new Set(), regions: new Set(), rooms: new Set(), minNights: 0, sailFrom: "", sailTo: "", favOnly: false };
+let filters = {
+  search: "",
+  profileIds: new Set(),        // empty = all profiles
+  ships: new Set(),
+  regions: new Set(),
+  rooms: new Set(),
+  minNights: 0,
+  sailFrom: "",
+  sailTo: "",
+  favOnly: false,
+  matchOnly: false,
+};
 let sortKey = "sailDate";
 let view = "list";
 
@@ -20,9 +33,13 @@ async function loadData() {
     const resp = await chrome.runtime.sendMessage({ type: "GET_ALL" });
     if (!resp?.ok) { setStatus("Error loading data"); return; }
     allSailings = resp.data.sailings;
+    profiles = resp.data.profiles || [];
+    counts = resp.data.counts || counts;
     favSet = new Set(allSailings.filter((s) => s.isFavorite).map((s) => s.rcSailingId));
     updateFavToggleLabel();
+    updateMatchToggleLabel();
     populateFacets();
+    renderNamingBanner();
     render();
     const syncResp = await chrome.runtime.sendMessage({ type: "GET_LAST_SYNC" });
     if (syncResp?.lastSync) setStatus("Last sync: " + fmtDate(syncResp.lastSync));
@@ -30,6 +47,10 @@ async function loadData() {
   } catch (e) {
     setStatus("Error: " + e.message);
   }
+}
+
+function profileById(id) {
+  return profiles.find((p) => p.profileId === id) || null;
 }
 
 // ── Controls ───────────────────────────────────────────────────────────────
@@ -52,7 +73,6 @@ function bindControls() {
     const customInputs = document.getElementById("sail-custom-inputs");
     if (days === "custom") {
       customInputs.style.display = "";
-      // Leave existing input values; #sail-from/#sail-to listeners drive the filter.
     } else if (days === "0") {
       filters.sailFrom = "";
       filters.sailTo = "";
@@ -71,11 +91,12 @@ function bindControls() {
   });
   document.querySelectorAll(".filter-action").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const target = btn.dataset.target; // ships | regions | rooms
-      const containerId = { ships: "ship-chips", regions: "region-chips", rooms: "room-chips" }[target];
-      const container = document.getElementById(containerId);
-      if (!container) return;
-      filters[target].clear();
+      const target = btn.dataset.target; // ships | regions | rooms | profiles
+      const map = { ships: "ship-chips", regions: "region-chips", rooms: "room-chips", profiles: "profile-chips" };
+      const key = { ships: "ships", regions: "regions", rooms: "rooms", profiles: "profileIds" }[target];
+      const container = document.getElementById(map[target]);
+      if (!container || !key) return;
+      filters[key].clear();
       container.querySelectorAll(".chip.active").forEach((c) => c.classList.remove("active"));
       render();
     });
@@ -87,6 +108,15 @@ function bindControls() {
     document.getElementById("fav-toggle").classList.toggle("active", filters.favOnly);
     render();
   });
+  document.getElementById("match-toggle").addEventListener("click", () => {
+    filters.matchOnly = !filters.matchOnly;
+    document.getElementById("match-toggle").classList.toggle("active", filters.matchOnly);
+    render();
+  });
+  document.getElementById("profiles-btn").addEventListener("click", openProfilesModal);
+  document.getElementById("profiles-modal-close").addEventListener("click", closeProfilesModal);
+  document.querySelector("#profiles-modal .modal-backdrop").addEventListener("click", closeProfilesModal);
+  document.getElementById("import-file").addEventListener("change", handleImportFile);
   document.querySelectorAll("#view-toggle button").forEach((btn) => {
     btn.addEventListener("click", () => {
       view = btn.dataset.view;
@@ -99,17 +129,24 @@ function bindControls() {
 }
 
 function resetFilters() {
-  filters = { search: "", ships: new Set(), regions: new Set(), rooms: new Set(), minNights: 0, sailFrom: "", sailTo: "" };
+  filters = {
+    search: "",
+    profileIds: new Set(),
+    ships: new Set(), regions: new Set(), rooms: new Set(),
+    minNights: 0, sailFrom: "", sailTo: "",
+    favOnly: false, matchOnly: false,
+  };
   document.getElementById("search").value = "";
   document.getElementById("nights-range").value = 0;
   document.getElementById("nights-val").textContent = "Any";
   document.getElementById("sail-from").value = "";
   document.getElementById("sail-to").value = "";
   document.querySelectorAll(".chip.active").forEach((c) => c.classList.remove("active"));
-  // Restore default "Any" preset chip
   const anyChip = document.querySelector('#sail-preset-chips .chip[data-days="0"]');
   if (anyChip) anyChip.classList.add("active");
   document.getElementById("sail-custom-inputs").style.display = "none";
+  document.getElementById("fav-toggle").classList.remove("active");
+  document.getElementById("match-toggle").classList.remove("active");
   render();
 }
 
@@ -121,7 +158,6 @@ async function syncNow() {
     const resp = await chrome.runtime.sendMessage({ type: "TRIGGER_SYNC" });
     if (resp?.ok) {
       setStatus("Sync triggered — watch the RC page for progress");
-      // Poll for new data after a delay
       setTimeout(loadData, 8000);
     } else {
       setStatus("Sync failed: " + (resp?.error || "unknown error"));
@@ -134,13 +170,24 @@ async function syncNow() {
 
 // ── Facets ─────────────────────────────────────────────────────────────────
 function populateFacets() {
+  // Ship/Region are canonical (top-level on the aggregated row)
   const ships = [...new Set(allSailings.map((s) => s.ship).filter(Boolean))].sort();
   const regions = [...new Set(allSailings.map((s) => s.region).filter(Boolean))].sort();
-  const rooms = [...new Set(allSailings.map((s) => s.stateroomCategory).filter(Boolean))].sort();
+
+  // Room types come from any profile's offering for a sailing
+  const roomSet = new Set();
+  for (const s of allSailings) {
+    for (const pid of Object.keys(s.profiles || {})) {
+      const r = s.profiles[pid].stateroomCategory;
+      if (r) roomSet.add(r);
+    }
+  }
+  const rooms = [...roomSet].sort();
 
   renderChips("ship-chips", ships, "ships");
   renderChips("region-chips", regions, "regions");
   renderChips("room-chips", rooms, "rooms");
+  renderProfileChips();
 
   const maxNights = Math.max(...allSailings.map((s) => s.nights || 0), 0);
   document.getElementById("nights-range").max = maxNights;
@@ -163,23 +210,82 @@ function renderChips(containerId, values, filterKey) {
   }
 }
 
+function renderProfileChips() {
+  const section = document.getElementById("profiles-section");
+  const el = document.getElementById("profile-chips");
+  el.innerHTML = "";
+  // Hide the section unless there are 2+ profiles
+  if (profiles.length < 2) {
+    section.style.display = "none";
+    return;
+  }
+  section.style.display = "";
+  for (const p of profiles) {
+    const chip = document.createElement("button");
+    chip.className = "chip profile-chip";
+    chip.style.setProperty("--profile-color", profileColor(p.profileId));
+    chip.innerHTML = `<span class="profile-dot"></span>${esc(p.name)}`;
+    chip.addEventListener("click", () => {
+      if (filters.profileIds.has(p.profileId)) filters.profileIds.delete(p.profileId);
+      else filters.profileIds.add(p.profileId);
+      chip.classList.toggle("active", filters.profileIds.has(p.profileId));
+      render();
+    });
+    el.appendChild(chip);
+  }
+}
+
+// Hash a profileId to a stable hue.
+function profileColor(profileId) {
+  let h = 0;
+  for (let i = 0; i < profileId.length; i++) h = (h * 31 + profileId.charCodeAt(i)) >>> 0;
+  const hue = h % 360;
+  return `hsl(${hue} 70% 60%)`;
+}
+
 // ── Filtering + Sorting ────────────────────────────────────────────────────
 function applyFilters() {
   const q = filters.search.toLowerCase();
   return allSailings.filter((s) => {
     if (filters.favOnly && !favSet.has(s.rcSailingId)) return false;
+    if (filters.matchOnly && (s.matchProfileIds || []).length < 2) return false;
+
+    // Profile filter — sailing passes if any selected profile has it
+    if (filters.profileIds.size) {
+      const hasOne = s.matchProfileIds.some((pid) => filters.profileIds.has(pid));
+      if (!hasOne) return false;
+    }
+
     if (filters.ships.size && !filters.ships.has(s.ship)) return false;
     if (filters.regions.size && !filters.regions.has(s.region)) return false;
-    if (filters.rooms.size && !filters.rooms.has(s.stateroomCategory)) return false;
+
+    // Room filter checks any profile's stateroom for this sailing
+    if (filters.rooms.size) {
+      const profileRooms = Object.values(s.profiles || {}).map((p) => p.stateroomCategory).filter(Boolean);
+      const match = profileRooms.some((r) => filters.rooms.has(r));
+      if (!match) return false;
+    }
+
     if (filters.minNights > 0 && (s.nights || 0) < filters.minNights) return false;
     if (filters.sailFrom && s.sailDate < filters.sailFrom) return false;
     if (filters.sailTo && s.sailDate > filters.sailTo) return false;
+
     if (q) {
-      const hay = [s.ship, s.itineraryName, s.region, s.departurePort, ...(s.portsOfCall || [])].join(" ").toLowerCase();
+      const profileTexts = Object.values(s.profiles || {}).flatMap((p) => [
+        p.offer?.title, p.offer?.description, p.stateroomCategory,
+      ]).filter(Boolean);
+      const hay = [s.ship, s.itineraryName, s.region, s.departurePort, ...(s.portsOfCall || []), ...profileTexts].join(" ").toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
   });
+}
+
+// Earliest book-by across all profiles (for sort + urgency)
+function earliestBookBy(s) {
+  const dates = Object.values(s.profiles || {}).map((p) => p.offer?.bookByDate).filter(Boolean);
+  if (!dates.length) return null;
+  return dates.reduce((a, b) => (a < b ? a : b));
 }
 
 function applySorting(sailings) {
@@ -187,7 +293,7 @@ function applySorting(sailings) {
     switch (sortKey) {
       case "sailDate": return (a.sailDate || "").localeCompare(b.sailDate || "");
       case "sailDate-desc": return (b.sailDate || "").localeCompare(a.sailDate || "");
-      case "bookBy": return (a.offer?.bookByDate || "9999").localeCompare(b.offer?.bookByDate || "9999");
+      case "bookBy": return (earliestBookBy(a) || "9999").localeCompare(earliestBookBy(b) || "9999");
       case "nights-desc": return (b.nights || 0) - (a.nights || 0);
       case "nights": return (a.nights || 0) - (b.nights || 0);
       default: return 0;
@@ -199,7 +305,11 @@ function applySorting(sailings) {
 function render() {
   const filtered = applyFilters();
   const sorted = applySorting(filtered);
-  document.getElementById("result-count").textContent = `${sorted.length} sailing${sorted.length !== 1 ? "s" : ""} of ${allSailings.length}`;
+  const matchCount = sorted.filter((s) => (s.matchProfileIds || []).length > 1).length;
+  const summary = profiles.length > 1
+    ? `${sorted.length} of ${counts.uniqueSailings} sailings · ${matchCount} match${matchCount !== 1 ? "es" : ""}`
+    : `${sorted.length} sailing${sorted.length !== 1 ? "s" : ""} of ${counts.uniqueSailings}`;
+  document.getElementById("result-count").textContent = summary;
   if (view === "list") renderList(sorted);
   else renderCalendar(sorted);
   focusSailingFromHash();
@@ -219,86 +329,112 @@ function buildCard(s) {
   const card = document.createElement("div");
   card.className = "sailing-card";
 
-  const bookByDate = s.offer?.bookByDate;
+  const bookByDate = earliestBookBy(s);
   const daysLeft = bookByDate ? daysUntil(bookByDate) : null;
-
   const urgencyBadge = daysLeft !== null && daysLeft <= 7
     ? `<span class="badge badge-warn">${daysLeft <= 0 ? "Expired" : `${daysLeft}d left`}</span>`
     : "";
 
-  // Row 1: ship · offer code · stateroom · urgency badge · reminder · star
-  const offerCode = s.offer?.rcOfferId || s.offerId || "";
   const isFav = favSet.has(s.rcSailingId);
   const reminderLabel = s.reminder ? formatReminderShort(s.reminder.fireAt) : "Remind me";
   const reminderActive = !!s.reminder;
+  const isMatch = (s.matchProfileIds || []).length > 1;
+
+  // Profile dots in the header
+  const profileDots = (s.matchProfileIds || []).map((pid) => {
+    const p = profileById(pid);
+    return `<span class="profile-dot" style="background:${profileColor(pid)}" title="${esc(p?.name || pid)}"></span>`;
+  }).join("");
+
+  const matchBadge = isMatch ? `<span class="badge badge-match">🔗 Match · ${s.matchProfileIds.length}</span>` : "";
+
+  // Card row 1: ship · profile dots · badges · reminder · star
   const row1 = `
     <div class="card-row1">
       <span class="card-ship">${esc(s.ship || "Unknown Ship")}</span>
-      ${offerCode ? `<span class="card-offer-code">${esc(offerCode)}</span>` : ""}
+      <span class="profile-dots">${profileDots}</span>
       <div class="card-badges">
-        ${s.stateroomCategory ? `<span class="badge" style="border-color:var(--border);color:var(--muted)">${esc(s.stateroomCategory)}</span>` : ""}
+        ${matchBadge}
         ${urgencyBadge}
         <button class="card-remind${reminderActive ? " active" : ""}" title="${reminderActive ? "Cancel reminder" : "Set a reminder"}">🔔 ${esc(reminderLabel)}</button>
         <button class="card-fav${isFav ? " active" : ""}" data-id="${esc(s.rcSailingId)}" title="${isFav ? "Remove from favorites" : "Add to favorites"}">${isFav ? "★" : "☆"}</button>
       </div>
     </div>`;
 
-  // Row 2: date · nights · departs · region · itinerary
+  // Row 2: canonical sailing info (date, nights, departure port, region, itinerary)
   const parts2 = [
     `<span class="card-date">${fmtShortDate(s.sailDate)}</span>`,
     `<span class="card-nights">${s.nights}n</span>`,
     s.departurePort ? `<span class="card-sep">·</span><span class="card-port">from ${esc(s.departurePort)}</span>` : "",
     s.region ? `<span class="card-sep">·</span><span class="card-port">${esc(s.region)}</span>` : "",
     s.itineraryName ? `<span class="card-sep">·</span><span class="card-itinerary">${esc(s.itineraryName)}</span>` : "",
-    s.priceAfterOffer != null ? `<span class="card-price">$${s.priceAfterOffer.toLocaleString()}${s.taxesFees != null ? ` <span class="card-price-taxes">+$${s.taxesFees} fees</span>` : ""}</span>` : "",
   ].filter(Boolean).join("");
   const row2 = `<div class="card-row2">${parts2}</div>`;
 
-  // Row 3: offer description · ports of call · book-by
-  const desc = s.offer?.description ? `<span class="card-offer-desc">${esc(s.offer.description)}</span>` : "";
+  // Row 3: ports of call
   const portChips = (s.portsOfCall || []).map((p) => `<span class="port-chip">${esc(p)}</span>`).join("");
-  const bookByStr = bookByDate
-    ? `<span class="card-book-by${daysLeft !== null && daysLeft <= 14 ? " urgent" : ""}">Book by ${fmtShortDate(bookByDate)}${daysLeft !== null ? ` · ${daysLeft > 0 ? daysLeft + "d left" : "expired"}` : ""}</span>`
-    : "";
-  const row3 = (desc || portChips || bookByStr) ? `<div class="card-row3">${desc}${portChips}${bookByStr}</div>` : "";
+  const row3 = portChips ? `<div class="card-row3">${portChips}</div>` : "";
 
-  card.innerHTML = row1 + row2 + row3;
+  // Per-profile rows: each profile's offer + room + book-by
+  const profileRows = (s.matchProfileIds || []).map((pid) => {
+    const pdata = s.profiles[pid] || {};
+    const p = profileById(pid);
+    const name = p?.name || pid;
+    const bookBy = pdata.offer?.bookByDate;
+    const bbDays = bookBy ? daysUntil(bookBy) : null;
+    const bbStr = bookBy
+      ? `<span class="profile-row-bookby${bbDays !== null && bbDays <= 14 ? " urgent" : ""}">book by ${fmtShortDate(bookBy)}${bbDays !== null ? ` · ${bbDays > 0 ? bbDays + "d" : "expired"}` : ""}</span>`
+      : "";
+    const desc = pdata.offer?.description ? `<span class="profile-row-desc">${esc(pdata.offer.description)}</span>` : "";
+    const room = pdata.stateroomCategory ? `<span class="profile-row-room">${esc(pdata.stateroomCategory)}</span>` : "";
+    const price = pdata.priceAfterOffer != null
+      ? `<span class="profile-row-price">$${pdata.priceAfterOffer.toLocaleString()}${pdata.taxesFees != null ? ` <span class="card-price-taxes">+$${pdata.taxesFees}</span>` : ""}</span>`
+      : "";
+    const compType = pdata.offer?.compType ? `<span class="profile-row-comp">${esc(pdata.offer.compType)}</span>` : "";
+    return `
+      <div class="profile-row">
+        <span class="profile-row-name" style="color:${profileColor(pid)}">
+          <span class="profile-dot" style="background:${profileColor(pid)}"></span>${esc(name)}
+        </span>
+        ${compType}${desc}${room}${price}${bbStr}
+      </div>`;
+  }).join("");
+
+  card.innerHTML = row1 + row2 + row3 + profileRows;
   card.dataset.sailingId = s.rcSailingId;
 
   attachReminderControls(card, s);
-
-  const favBtn = card.querySelector(".card-fav");
-  if (favBtn) {
-    favBtn.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      const id = s.rcSailingId;
-      const wasFav = favSet.has(id);
-      // Optimistic update
-      if (wasFav) favSet.delete(id);
-      else favSet.add(id);
-      favBtn.classList.toggle("active", !wasFav);
-      favBtn.textContent = wasFav ? "☆" : "★";
-      favBtn.title = wasFav ? "Add to favorites" : "Remove from favorites";
-      updateFavToggleLabel();
-      // If we're filtering by favOnly and we just unfavorited, re-render to drop it
-      if (filters.favOnly && wasFav) render();
-
-      try {
-        const resp = await chrome.runtime.sendMessage({ type: "FAV_TOGGLE", rcSailingId: id });
-        if (!resp?.ok) throw new Error(resp?.error || "Toggle failed");
-      } catch (err) {
-        // Revert on failure
-        if (wasFav) favSet.add(id);
-        else favSet.delete(id);
-        favBtn.classList.toggle("active", wasFav);
-        favBtn.textContent = wasFav ? "★" : "☆";
-        updateFavToggleLabel();
-        setStatus("Favorite update failed: " + err.message);
-      }
-    });
-  }
-
+  attachFavControl(card, s);
   return card;
+}
+
+function attachFavControl(card, s) {
+  const favBtn = card.querySelector(".card-fav");
+  if (!favBtn) return;
+  favBtn.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    const id = s.rcSailingId;
+    const wasFav = favSet.has(id);
+    if (wasFav) favSet.delete(id);
+    else favSet.add(id);
+    favBtn.classList.toggle("active", !wasFav);
+    favBtn.textContent = wasFav ? "☆" : "★";
+    favBtn.title = wasFav ? "Add to favorites" : "Remove from favorites";
+    updateFavToggleLabel();
+    if (filters.favOnly && wasFav) render();
+
+    try {
+      const resp = await chrome.runtime.sendMessage({ type: "FAV_TOGGLE", rcSailingId: id });
+      if (!resp?.ok) throw new Error(resp?.error || "Toggle failed");
+    } catch (err) {
+      if (wasFav) favSet.add(id);
+      else favSet.delete(id);
+      favBtn.classList.toggle("active", wasFav);
+      favBtn.textContent = wasFav ? "★" : "☆";
+      updateFavToggleLabel();
+      setStatus("Favorite update failed: " + err.message);
+    }
+  });
 }
 
 function updateFavToggleLabel() {
@@ -306,6 +442,152 @@ function updateFavToggleLabel() {
   if (!btn) return;
   const n = favSet.size;
   btn.textContent = n > 0 ? `★ Favorites (${n})` : "☆ Favorites";
+}
+
+function updateMatchToggleLabel() {
+  const btn = document.getElementById("match-toggle");
+  if (!btn) return;
+  const n = counts.matches || 0;
+  btn.textContent = n > 0 ? `🔗 Match (${n})` : "🔗 Match";
+  btn.disabled = profiles.length < 2;
+}
+
+// ── Naming banner for unnamed profiles ─────────────────────────────────────
+function renderNamingBanner() {
+  const banner = document.getElementById("naming-banner");
+  const unnamed = profiles.filter((p) => p.unnamed);
+  if (!unnamed.length) {
+    banner.style.display = "none";
+    banner.innerHTML = "";
+    return;
+  }
+  const p = unnamed[0];
+  banner.style.display = "";
+  banner.innerHTML = `
+    <span>New account detected (${esc(p.name)}). Name this profile:</span>
+    <input type="text" class="banner-input" placeholder="e.g. Sarah" />
+    <button class="banner-save">Save</button>
+    <button class="banner-skip">Skip</button>
+  `;
+  const input = banner.querySelector(".banner-input");
+  input.focus();
+  banner.querySelector(".banner-save").addEventListener("click", async () => {
+    const name = input.value.trim();
+    if (!name) { input.focus(); return; }
+    const resp = await chrome.runtime.sendMessage({ type: "RENAME_PROFILE", profileId: p.profileId, name });
+    if (resp?.ok) {
+      await loadData();
+    } else {
+      setStatus("Rename failed: " + (resp?.error || "unknown"));
+    }
+  });
+  banner.querySelector(".banner-skip").addEventListener("click", async () => {
+    // Skip just clears `unnamed` flag without renaming
+    const resp = await chrome.runtime.sendMessage({ type: "RENAME_PROFILE", profileId: p.profileId, name: p.name });
+    if (resp?.ok) await loadData();
+  });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") banner.querySelector(".banner-save").click();
+  });
+}
+
+// ── Profile manager modal ──────────────────────────────────────────────────
+function openProfilesModal() {
+  renderProfilesModal();
+  document.getElementById("profiles-modal").style.display = "";
+}
+
+function closeProfilesModal() {
+  document.getElementById("profiles-modal").style.display = "none";
+}
+
+function renderProfilesModal() {
+  const body = document.getElementById("profiles-modal-body");
+  body.innerHTML = "";
+  if (!profiles.length) {
+    body.innerHTML = `<p class="modal-empty">No profiles yet. Sync from RC to create your first profile.</p>`;
+    return;
+  }
+  for (const p of profiles) {
+    const offerCount = countOffersForProfile(p.profileId);
+    const sailingCount = countSailingsForProfile(p.profileId);
+    const lastSync = p.lastSyncAt ? new Date(p.lastSyncAt).toLocaleString() : "Never";
+    const row = document.createElement("div");
+    row.className = "profile-row-mgr";
+    row.innerHTML = `
+      <div class="profile-row-mgr-main">
+        <span class="profile-dot" style="background:${profileColor(p.profileId)}"></span>
+        <input class="profile-name-edit" value="${esc(p.name)}" data-id="${esc(p.profileId)}" />
+        <span class="profile-source-badge">${p.source === "imported" ? "imported" : "live"}</span>
+      </div>
+      <div class="profile-row-mgr-meta">
+        ${offerCount} offer${offerCount !== 1 ? "s" : ""} · ${sailingCount} sailing${sailingCount !== 1 ? "s" : ""} · last sync: ${lastSync}
+      </div>
+      <div class="profile-row-mgr-actions">
+        <button class="btn-secondary profile-action-export" data-id="${esc(p.profileId)}">Export</button>
+        <button class="btn-secondary profile-action-delete" data-id="${esc(p.profileId)}" ${p.profileId === "me" ? "disabled" : ""}>Delete</button>
+      </div>
+    `;
+    body.appendChild(row);
+  }
+
+  body.querySelectorAll(".profile-name-edit").forEach((input) => {
+    let original = input.value;
+    input.addEventListener("change", async () => {
+      const name = input.value.trim();
+      if (!name || name === original) { input.value = original; return; }
+      const resp = await chrome.runtime.sendMessage({ type: "RENAME_PROFILE", profileId: input.dataset.id, name });
+      if (resp?.ok) { original = name; await loadData(); renderProfilesModal(); }
+    });
+  });
+  body.querySelectorAll(".profile-action-export").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const resp = await chrome.runtime.sendMessage({ type: "EXPORT_PROFILE", profileId: btn.dataset.id });
+      if (!resp?.ok) { setStatus("Export failed: " + (resp?.error || "")); return; }
+      const blob = new Blob([JSON.stringify(resp.data, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `crf-profile-${(resp.data.profile?.name || "export").replace(/[^a-z0-9]+/gi, "-")}.json`;
+      a.click();
+    });
+  });
+  body.querySelectorAll(".profile-action-delete").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Delete this profile? Their offers and sailings will be removed.")) return;
+      const resp = await chrome.runtime.sendMessage({ type: "DELETE_PROFILE", profileId: btn.dataset.id });
+      if (resp?.ok) { await loadData(); renderProfilesModal(); }
+      else setStatus("Delete failed: " + (resp?.error || ""));
+    });
+  });
+}
+
+function countOffersForProfile(profileId) {
+  const set = new Set();
+  for (const s of allSailings) {
+    if (s.profiles?.[profileId]?.offerId) set.add(s.profiles[profileId].offerId);
+  }
+  return set.size;
+}
+
+function countSailingsForProfile(profileId) {
+  return allSailings.filter((s) => s.profiles?.[profileId]).length;
+}
+
+async function handleImportFile(e) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const json = JSON.parse(text);
+    const resp = await chrome.runtime.sendMessage({ type: "IMPORT_PROFILE", json });
+    if (!resp?.ok) throw new Error(resp?.error || "Import failed");
+    await loadData();
+    renderProfilesModal();
+  } catch (err) {
+    setStatus("Import failed: " + err.message);
+  } finally {
+    e.target.value = "";
+  }
 }
 
 // ── Reminders ──────────────────────────────────────────────────────────────
@@ -331,7 +613,7 @@ function openReminderPopover(anchor, card, s) {
   const pop = document.createElement("div");
   pop.className = "remind-popover";
 
-  const bookByDate = s.offer?.bookByDate;
+  const bookByDate = earliestBookBy(s);
   const bookBy = bookByDate ? new Date(bookByDate + "T09:00:00") : null;
   const now = new Date();
 
@@ -418,8 +700,7 @@ async function saveReminder(card, s, fireAtIso, offset) {
     sailDate: s.sailDate,
     nights: s.nights,
     itineraryName: s.itineraryName,
-    bookByDate: s.offer?.bookByDate || null,
-    offerTitle: s.offer?.title || null,
+    bookByDate: earliestBookBy(s),
   };
   try {
     const resp = await chrome.runtime.sendMessage({
@@ -487,6 +768,7 @@ function focusSailingFromHash() {
   }, 100);
 }
 
+// ── Calendar view ──────────────────────────────────────────────────────────
 function renderCalendar(sailings) {
   const el = document.getElementById("calendar-view");
   if (!sailings.length) {
@@ -503,7 +785,6 @@ function renderCalendar(sailings) {
   }
 
   el.innerHTML = "";
-
   const months = document.createElement("div");
   months.className = "cal-months";
 
@@ -565,7 +846,6 @@ function buildMonth(ym, sailings, panel) {
       cell.innerHTML = `<span class="cal-day-num">${d}</span><span class="cal-day-count" style="color:#93c5fd">${daySailings.length}</span>`;
 
       cell.addEventListener("click", () => {
-        // Deactivate any previously active cell across all months
         document.querySelectorAll(".cal-day-active").forEach((c) => c.classList.remove("cal-day-active"));
         cell.classList.add("cal-day-active");
 
@@ -622,7 +902,6 @@ function setStatus(msg) {
 }
 
 function restoreStateFromHash() {
-  // Simple: just restore sort from hash if present
   try {
     const h = location.hash.slice(1);
     if (!h) return;

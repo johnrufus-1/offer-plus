@@ -22,12 +22,23 @@
       <button data-view="calendar">📅 Cal</button>
     </div>
     <button id="fav-toggle" title="Show only favorites">☆ Favorites</button>
+    <button id="match-toggle" title="Show only sailings shared across profiles">🔗 Match</button>
+    <button id="profiles-btn" title="Manage profiles">👥 Profiles</button>
     <span id="sync-status">Loading…</span>
     <button id="sync-now-btn">Sync Now</button>
   </div>
 
   <div id="main">
     <div id="sidebar">
+      <div class="filter-section" id="profiles-section" style="display:none">
+        <div class="filter-label-row">
+          <span class="filter-label">Profiles</span>
+          <span class="filter-actions">
+            <button class="filter-action" data-action="clear" data-target="profiles">Clear</button>
+          </span>
+        </div>
+        <div class="chip-group" id="profile-chips"></div>
+      </div>
       <div class="filter-section">
         <div class="filter-label-row">
           <span class="filter-label">Ship</span>
@@ -81,12 +92,28 @@
     </div>
 
     <div id="content">
+      <div id="naming-banner" style="display:none"></div>
       <div id="result-count"></div>
       <div id="list-view"></div>
       <div id="calendar-view" style="display:none"></div>
     </div>
   </div>
 </div>
+<div id="profiles-modal" style="display:none">
+  <div class="modal-backdrop"></div>
+  <div class="modal-panel">
+    <div class="modal-header">
+      <h2>Profiles</h2>
+      <button class="modal-close" id="profiles-modal-close">×</button>
+    </div>
+    <div class="modal-body" id="profiles-modal-body"></div>
+    <div class="modal-footer">
+      <label class="btn-secondary" for="import-file">Import buddy file…</label>
+      <input type="file" id="import-file" accept="application/json" style="display:none" />
+    </div>
+  </div>
+</div>
+
 <script src="dashboard.js" type="module"></script>
 </body>
 </html>
