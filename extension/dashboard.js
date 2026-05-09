@@ -12,6 +12,8 @@ let filters = {
   profileIds: new Set(),        // empty = all profiles
   ships: new Set(),
   regions: new Set(),
+  departurePorts: new Set(),
+  portsOfCall: new Set(),
   rooms: new Set(),
   minNights: 0,
   sailFrom: "",
@@ -94,9 +96,17 @@ function bindControls() {
   });
   document.querySelectorAll(".filter-action").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const target = btn.dataset.target; // ships | regions | rooms | profiles
-      const map = { ships: "ship-chips", regions: "region-chips", rooms: "room-chips", profiles: "profile-chips" };
-      const key = { ships: "ships", regions: "regions", rooms: "rooms", profiles: "profileIds" }[target];
+      const target = btn.dataset.target;
+      const map = {
+        ships: "ship-chips", regions: "region-chips", rooms: "room-chips",
+        profiles: "profile-chips",
+        departurePorts: "departure-chips", portsOfCall: "port-chips",
+      };
+      const key = {
+        ships: "ships", regions: "regions", rooms: "rooms",
+        profiles: "profileIds",
+        departurePorts: "departurePorts", portsOfCall: "portsOfCall",
+      }[target];
       const container = document.getElementById(map[target]);
       if (!container || !key) return;
       filters[key].clear();
@@ -135,7 +145,9 @@ function resetFilters() {
   filters = {
     search: "",
     profileIds: new Set(),
-    ships: new Set(), regions: new Set(), rooms: new Set(),
+    ships: new Set(), regions: new Set(),
+    departurePorts: new Set(), portsOfCall: new Set(),
+    rooms: new Set(),
     minNights: 0, sailFrom: "", sailTo: "",
     favOnly: false, matchOnly: false,
   };
@@ -173,9 +185,17 @@ async function syncNow() {
 
 // ── Facets ─────────────────────────────────────────────────────────────────
 function populateFacets() {
-  // Ship/Region are canonical (top-level on the aggregated row)
+  // Ship/Region/Departure are canonical (top-level on the aggregated row)
   const ships = [...new Set(allSailings.map((s) => s.ship).filter(Boolean))].sort();
   const regions = [...new Set(allSailings.map((s) => s.region).filter(Boolean))].sort();
+  const departurePorts = [...new Set(allSailings.map((s) => s.departurePort).filter(Boolean))].sort();
+
+  // Ports of call: union of all stops across sailings
+  const portsSet = new Set();
+  for (const s of allSailings) {
+    for (const p of (s.portsOfCall || [])) if (p) portsSet.add(p);
+  }
+  const ports = [...portsSet].sort();
 
   // Room types come from any profile's offering for a sailing
   const roomSet = new Set();
@@ -189,6 +209,8 @@ function populateFacets() {
 
   renderChips("ship-chips", ships, "ships");
   renderChips("region-chips", regions, "regions");
+  renderChips("departure-chips", departurePorts, "departurePorts");
+  renderChips("port-chips", ports, "portsOfCall");
   renderChips("room-chips", rooms, "rooms");
   renderProfileChips();
 
@@ -261,6 +283,12 @@ function applyFilters() {
 
     if (filters.ships.size && !filters.ships.has(s.ship)) return false;
     if (filters.regions.size && !filters.regions.has(s.region)) return false;
+    if (filters.departurePorts.size && !filters.departurePorts.has(s.departurePort)) return false;
+    if (filters.portsOfCall.size) {
+      const stops = s.portsOfCall || [];
+      const hit = stops.some((p) => filters.portsOfCall.has(p));
+      if (!hit) return false;
+    }
 
     // Room filter checks any profile's stateroom for this sailing
     if (filters.rooms.size) {
