@@ -2,8 +2,21 @@
 // the page context (recorder.js, MAIN world) and the background service worker.
 
 (function () {
+  if (window.__crfContentInstalled) return;
+  window.__crfContentInstalled = true;
+
+  // Returns true while the extension context is still valid. Goes false if
+  // the extension is reloaded while this tab is still open — at which point
+  // any chrome.* call would throw "Extension context invalidated". The
+  // background's TRIGGER_SYNC handler injects a fresh content.js to take
+  // over, so this stale instance silently steps aside.
+  function contextValid() {
+    try { return !!chrome.runtime?.id; } catch { return false; }
+  }
+
   // Trigger sync from popup/background
   chrome.runtime.onMessage.addListener((msg) => {
+    if (!contextValid()) return;
     if (msg.type === "TRIGGER_SYNC") {
       setStatus("Fetching offers…", "#3b82f6");
       window.dispatchEvent(new CustomEvent("crf-sync-request"));
@@ -15,6 +28,7 @@
     if (event.source !== window) return;
     const data = event.data;
     if (!data || data.__crf !== true) return;
+    if (!contextValid()) return; // stale instance — let the fresh one handle it
 
     if (data.type === "STATUS") {
       setStatus(data.msg, "#3b82f6");
@@ -37,6 +51,7 @@
             setStatus(`Sync failed: ${resp?.status ?? "?"} ${JSON.stringify(resp?.body ?? "")}`, "#ef4444");
           }
         } catch (e) {
+          if (String(e).includes("Extension context invalidated")) return;
           setStatus(`Error: ${e}`, "#ef4444");
         }
       })();
@@ -48,6 +63,11 @@
   });
 
   function setStatus(msg, color) {
-    chrome.storage.local.set({ syncStatus: { msg, color, ts: Date.now() } });
+    if (!contextValid()) return;
+    try {
+      chrome.storage.local.set({ syncStatus: { msg, color, ts: Date.now() } });
+    } catch (_) {
+      // context invalidated mid-call — silently no-op
+    }
   }
 })();

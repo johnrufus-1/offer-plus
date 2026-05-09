@@ -250,7 +250,12 @@
       });
     }
 
-    console.log(`[CRF] Mapped ${offers.length} offers, ${offers.reduce((a, o) => a + o.sailings.length, 0)} sailings`);
-    return { offers };
+    // Extract the loyaltyId from captured auth headers (case-insensitive)
+    const headers = capturedAuthHeaders || window.__crfAuthHeaders || {};
+    const loyaltyKey = Object.keys(headers).find((k) => k.toLowerCase() === "x-loyalty-id");
+    const loyaltyId = loyaltyKey ? headers[loyaltyKey] : null;
+
+    console.log(`[CRF] Mapped ${offers.length} offers, ${offers.reduce((a, o) => a + o.sailings.length, 0)} sailings, loyaltyId=${loyaltyId}`);
+    return { offers, loyaltyId };
   };
 })();

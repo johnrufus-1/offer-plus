@@ -1,4 +1,11 @@
-import { upsertOffers, getAllData, getLastSync, toggleFavorite, setReminder, clearReminder, getAllReminders } from "./db.js";
+import {
+  upsertOffers, getAllData, getLastSync,
+  toggleFavorite,
+  setReminder, clearReminder, getAllReminders,
+  ensureProfile, listProfiles, renameProfile, deleteProfile,
+  exportProfileJson, importProfileJson,
+  toggleOfferDisabled,
+} from "./db.js";
 
 const ALARM_PREFIX = "reminder-";
 
@@ -88,9 +95,22 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     switch (msg.type) {
       case "SYNC": {
         try {
-          const result = await upsertOffers(msg.payload);
+          const { loyaltyId } = msg.payload || {};
+          if (!loyaltyId) {
+            sendResponse({ ok: false, error: "Couldn't identify your account — refresh the RC page and try again" });
+            break;
+          }
+          const profile = await ensureProfile(loyaltyId);
+          const result = await upsertOffers(msg.payload, profile.profileId);
           await chrome.storage.local.set({ lastSync: result.syncedAt });
-          sendResponse({ ok: true, body: { offers: result.offerCount, sailings: result.sailingCount } });
+          sendResponse({
+            ok: true,
+            body: {
+              offers: result.offerCount,
+              sailings: result.sailingCount,
+              profile: { id: profile.profileId, name: profile.name, unnamed: !!profile.unnamed },
+            },
+          });
         } catch (e) {
           console.error("[CRF background] sync error:", e);
           sendResponse({ ok: false, error: String(e) });
@@ -153,6 +173,70 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         break;
       }
 
+      case "LIST_PROFILES": {
+        try {
+          const profiles = await listProfiles();
+          sendResponse({ ok: true, profiles });
+        } catch (e) {
+          sendResponse({ ok: false, error: String(e) });
+        }
+        break;
+      }
+
+      case "RENAME_PROFILE": {
+        try {
+          const profile = await renameProfile(msg.profileId, msg.name);
+          sendResponse({ ok: true, profile });
+        } catch (e) {
+          sendResponse({ ok: false, error: String(e) });
+        }
+        break;
+      }
+
+      case "DELETE_PROFILE": {
+        try {
+          if (msg.profileId === "me") {
+            sendResponse({ ok: false, error: "Cannot delete your primary profile" });
+            break;
+          }
+          await deleteProfile(msg.profileId);
+          sendResponse({ ok: true });
+        } catch (e) {
+          sendResponse({ ok: false, error: String(e) });
+        }
+        break;
+      }
+
+      case "EXPORT_PROFILE": {
+        try {
+          const data = await exportProfileJson(msg.profileId);
+          sendResponse({ ok: true, data });
+        } catch (e) {
+          sendResponse({ ok: false, error: String(e) });
+        }
+        break;
+      }
+
+      case "IMPORT_PROFILE": {
+        try {
+          const result = await importProfileJson(msg.json);
+          sendResponse({ ok: true, ...result });
+        } catch (e) {
+          sendResponse({ ok: false, error: String(e) });
+        }
+        break;
+      }
+
+      case "OFFER_TOGGLE_DISABLED": {
+        try {
+          const disabled = await toggleOfferDisabled(msg.profileId, msg.rcOfferId);
+          sendResponse({ ok: true, disabled });
+        } catch (e) {
+          sendResponse({ ok: false, error: String(e) });
+        }
+        break;
+      }
+
       case "RECORDED_CALL": {
         const { recording, recordedCalls = [] } = await chrome.storage.local.get(["recording", "recordedCalls"]);
         if (recording) {
@@ -164,14 +248,48 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       }
 
       case "TRIGGER_SYNC": {
-        // Called from popup — injects a sync trigger into the active RC tab
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (!tab?.url?.includes("royalcaribbean.com/club-royale")) {
-          sendResponse({ ok: false, error: "Not on a Club Royale page. Open royalcaribbean.com/club-royale/offers first." });
-          return;
+        try {
+          // Find any RC offers tab across all windows (not just the active one).
+          const allTabs = await chrome.tabs.query({});
+          const rcTabs = allTabs.filter((t) => t.url?.includes("royalcaribbean.com/club-royale"));
+          console.log("[CRF bg] TRIGGER_SYNC — found", rcTabs.length, "RC tab(s)");
+          if (!rcTabs.length) {
+            sendResponse({ ok: false, error: "Open royalcaribbean.com/club-royale/offers in a tab first" });
+            break;
+          }
+          // Prefer the active RC tab if there is one
+          const tab = rcTabs.find((t) => t.active) || rcTabs[0];
+          console.log("[CRF bg] TRIGGER_SYNC — sending to tab", tab.id, tab.url);
+
+          // Verify content.js is listening (it may be missing if the tab was
+          // open before the extension was reloaded). Try to send the message;
+          // if no listener, inject content scripts and retry.
+          try {
+            await chrome.tabs.sendMessage(tab.id, { type: "TRIGGER_SYNC" });
+          } catch (firstErr) {
+            console.warn("[CRF bg] content.js not responding, injecting scripts:", firstErr.message);
+            try {
+              await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                files: ["content.js"],
+              });
+              await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                world: "MAIN",
+                files: ["recorder.js"],
+              });
+              // Retry after injection
+              await chrome.tabs.sendMessage(tab.id, { type: "TRIGGER_SYNC" });
+            } catch (retryErr) {
+              sendResponse({ ok: false, error: `RC tab needs a refresh — ${retryErr.message}` });
+              break;
+            }
+          }
+          sendResponse({ ok: true, tabId: tab.id });
+        } catch (e) {
+          console.error("[CRF bg] TRIGGER_SYNC failed:", e);
+          sendResponse({ ok: false, error: String(e) });
         }
-        chrome.tabs.sendMessage(tab.id, { type: "TRIGGER_SYNC" }).catch(() => {});
-        sendResponse({ ok: true });
         break;
       }
 
