@@ -132,6 +132,7 @@ html, body { background: var(--bg); color: var(--text); font-family: ui-sans-ser
 .profile-chip .profile-dot { width: 7px; height: 7px; }
 
 .badge-match { background: rgba(59,130,246,.15); border-color: rgba(59,130,246,.4); color: #93c5fd; }
+.badge-room { border-color: var(--border); color: var(--muted); background: var(--panel2); font-weight: 500; }
 
 .profile-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 6px 0 0; border-top: 1px dashed var(--border); margin-top: 6px; font-size: 12px; }
 .profile-row:first-of-type { border-top-style: solid; }

@@ -370,6 +370,12 @@ function buildCard(s) {
     ? `<a class="card-itin-link" href="${esc(itinUrl)}" target="_blank" rel="noopener" title="View itinerary + ports of call on royalcaribbean.com">View on RC ↗</a>`
     : "";
 
+  // Unique stateroom categories across the profiles that have this sailing
+  const rooms = [...new Set(
+    (s.matchProfileIds || []).map((pid) => s.profiles?.[pid]?.stateroomCategory).filter(Boolean)
+  )];
+  const roomBadges = rooms.map((r) => `<span class="badge badge-room">${esc(r)}</span>`).join("");
+
   // Card row 1: ship · profile dots · badges · view-on-rc · reminder · star
   const row1 = `
     <div class="card-row1">
@@ -377,6 +383,7 @@ function buildCard(s) {
       <span class="profile-dots">${profileDots}</span>
       <div class="card-badges">
         ${matchBadge}
+        ${roomBadges}
         ${urgencyBadge}
         ${itinLink}
         <button class="card-remind${reminderActive ? " active" : ""}" title="${reminderActive ? "Cancel reminder" : "Set a reminder"}">🔔 ${esc(reminderLabel)}</button>
