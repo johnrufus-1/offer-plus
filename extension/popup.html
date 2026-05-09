@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Club Royale Finder</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { width: 260px; padding: 16px; font: 13px system-ui, -apple-system, sans-serif; background: #0d1016; color: #e8ecf2; }
+    h1 { font-size: 15px; font-weight: 700; color: #3b82f6; margin-bottom: 14px; }
+    .btn { display: block; width: 100%; border-radius: 8px; padding: 9px 12px; font: inherit; cursor: pointer; text-align: center; transition: opacity .15s; }
+    .btn:hover { opacity: .85; }
+    .btn-primary { background: #3b82f6; color: #fff; border: none; margin-bottom: 8px; }
+    .btn-secondary { background: #1a1f27; color: #e8ecf2; border: 1px solid #222831; }
+    .meta { margin-top: 14px; font-size: 11px; color: #8a93a3; }
+    .meta span { color: #e8ecf2; }
+    #sync-msg { margin-top: 10px; font-size: 11px; min-height: 14px; color: #8a93a3; }
+    .hint { margin-top: 12px; font-size: 11px; color: #8a93a3; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <h1>♠ Club Royale Finder</h1>
+  <button class="btn btn-primary" id="open-dashboard">Open Dashboard</button>
+  <button class="btn btn-secondary" id="sync-now">Sync Now</button>
+  <div id="sync-msg"></div>
+  <div class="meta">Last sync: <span id="last-sync">—</span></div>
+  <div class="hint">To sync, open <strong>royalcaribbean.com/club-royale/offers</strong> first, then click Sync Now.</div>
+  <script src="popup.js"></script>
+</body>
+</html>

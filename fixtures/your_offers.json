@@ -1,0 +1,1342 @@
+{
+  "offers": [
+    {
+      "rcOfferId": "26SER3",
+      "title": "Southeast Action",
+      "description": "Junior Suite or Balcony Room for Two",
+      "compType": "Free Cruise",
+      "bookByDate": "2026-05-13",
+      "terms": null,
+      "raw": {
+        "bookingRequest": [],
+        "brmsCouponCode": null,
+        "campaignCode": "26SER3",
+        "campaignDescriptionList": [],
+        "campaignExclusionList": [],
+        "campaignName": "2026 Close to Home #3 - Southeast Action",
+        "campaignOffer": {
+          "allowedNumberOfPerks": 1,
+          "bookingFeeAmount": null,
+          "currency": {
+            "code": "USD",
+            "name": "US Dollar",
+            "symbol": "$"
+          },
+          "description": "Junior Suite or Balcony Room for Two",
+          "descriptionList": [],
+          "digitalRedemptionOnly": false,
+          "exclusionList": [],
+          "name": "Southeast Action",
+          "offerCode": "26SER301",
+          "offerFiles": [],
+          "offerImages": [],
+          "offerType": {
+            "code": "COMP",
+            "name": "Complimentary"
+          },
+          "perkCodes": [],
+          "reserveByDate": "2026-05-13T03:59:00.000Z",
+          "roomCount": 1,
+          "sailByDate": "2026-11-30T00:00:00.000Z",
+          "sailingInclusionMode": "included",
+          "sailings": [
+            {
+              "DOLLARSOFF_AMT": 0,
+              "FREEPLAY_AMT": 0,
+              "departurePort": {
+                "code": "FLL",
+                "name": "Fort Lauderdale"
+              },
+              "id": "JW_FLL_2026-09-21",
+              "isCOMP": true,
+              "isDOLLARSOFF": false,
+              "isFREEPLAY": false,
+              "isGOBO": false,
+              "isGTY": false,
+              "itineraryCode": "JW4BH433",
+              "itineraryDescription": "4 NIGHT BAHAMAS GETAWAY CRUISE",
+              "itineraryName": "Bahamas Getaway Cruise",
+              "nextCruiseBonus": null,
+              "nextCruiseBonusPerkCode": null,
+              "perks": null,
+              "roomType": "Junior Suite",
+              "roomTypeList": [
+                {
+                  "code": "JUNIOR SUITE",
+                  "name": "Junior Suite"
+                }
+              ],
+              "sailDate": "2026-09-21",
+              "sailingType": null,
+              "shipBrand": null,
+              "shipCode": "JW",
+              "shipName": "Jewel of the Seas",
+              "totalNights": 4
+            },
+            {
+              "DOLLARSOFF_AMT": 0,
+              "FREEPLAY_AMT": 0,
+              "departurePort": {
+                "code": "MIA",
+                "name": "Miami"
+              },
+              "id": "FR_MIA_2026-10-22",
+              "isCOMP": true,
+              "isDOLLARSOFF": false,
+              "isFREEPLAY": false,
+              "isGOBO": false,
+              "isGTY": false,
+              "itineraryCode": "FR09D173",
+              "itineraryDescription": "9 NIGHT SOUTHERN CARIBBEAN CRUISE",
+              "itineraryName": "Southern Caribbean Cruise",
+              "nextCruiseBonus": null,
+              "nextCruiseBonusPerkCode": null,
+              "perks": null,
+              "roomType": "Junior Suite",
+              "roomTypeList": [
+                {
+                  "code": "JUNIOR SUITE",
+                  "name": "Junior Suite"
+                }
+              ],
+              "sailDate": "2026-10-22",
+              "sailingType": null,
+              "shipBrand": null,
+              "shipCode": "FR",
+              "shipName": "Freedom of the Seas",
+              "totalNights": 9
+            },
+            {
+              "DOLLARSOFF_AMT": 0,
+              "FREEPLAY_AMT": 0,
+              "departurePort": {
+                "code": "PCN",
+                "name": "Orlando (Port Canaveral)"
+              },
+              "id": "AD_PCN_2026-10-24",
+              "isCOMP": true,
+              "isDOLLARSOFF": false,
+              "isFREEPLAY": false,
+              "isGOBO": false,
+              "isGTY": false,
+              "itineraryCode": "AD06W279",
+              "itineraryDescription": "6 NIGHT WESTERN CARIBBEAN & PERFECT DAY",
+              "itineraryName": "Western Caribbean & Perfect Day",
+              "nextCruiseBonus": null,
+              "nextCruiseBonusPerkCode": null,
+              "perks": null,
+              "roomType": "Junior Suite",
+              "roomTypeList": [
+                {
+                  "code": "JUNIOR SUITE",
+                  "name": "Junior Suite"
+                }
+              ],
+              "sailDate": "2026-10-24",
+              "sailingType": null,
+              "shipBrand": null,
+              "shipCode": "AD",
+              "shipName": "Adventure of the Seas",
+              "totalNights": 6
+            },
+            {
+              "DOLLARSOFF_AMT": 0,
+              "FREEPLAY_AMT": 0,
+              "departurePort": {
+                "code": "PCN",
+                "name": "Orlando (Port Canaveral)"
+              },
+              "id": "AD_PCN_2026-10-30",
+              "isCOMP": true,
+              "isDOLLARSOFF": false,
+              "isFREEPLAY": false,
+              "isGOBO": false,
+              "isGTY": false,
+              "itineraryCode": "AD06W280",
+              "itineraryDescription": "6 NIGHT WESTERN CARIBBEAN & PERFECT DAY",
+              "itineraryName": "Western Caribbean & Perfect Day",
+              "nextCruiseBonus": null,
+              "nextCruiseBonusPerkCode": null,
+              "perks": null,
+              "roomType": "Junior Suite",
+              "roomTypeList": [
+                {
+                  "code": "JUNIOR SUITE",
+                  "name": "Junior Suite"
+                }
+              ],
+              "sailDate": "2026-10-30",
+              "sailingType": null,
+              "shipBrand": null,
+              "shipCode": "AD",
+              "shipName": "Adventure of the Seas",
+              "totalNights": 6
+            },
+            {
+              "DOLLARSOFF_AMT": 0,
+              "FREEPLAY_AMT": 0,
+              "departurePort": {
+                "code": "TPA",
+                "name": "Tampa"
+              },
+              "id": "RD_TPA_2026-11-07",
+              "isCOMP": true,
+              "isDOLLARSOFF": false,
+              "isFREEPLAY": false,
+              "isGOBO": false,
+              "isGTY": false,
+              "itineraryCode": "RD07W770",
+              "itineraryDescription": "7 NIGHT WESTERN CARIBBEAN CRUISE",
+              "itineraryName": "Western Caribbean Cruise",
+              "nextCruiseBonus": null,
+              "nextCruiseBonusPerkCode": null,
+              "perks": null,
+              "roomType": "Junior Suite",
+              "roomTypeList": [
+                {
+                  "code": "JUNIOR SUITE",
+                  "name": "Junior Suite"
+                }
+              ],
+              "sailDate": "2026-11-07",
+              "sailingType": null,
+              "shipBrand": null,
+              "shipCode": "RD",
+              "shipName": "Radiance of the Seas",
+              "totalNights": 7
+            },
+            {
+              "DOLLARSOFF_AMT": 0,
+              "FREEPLAY_AMT": 0,
+              "departurePort": {
+                "code": "MIA",
+                "name": "Miami"
+              },
+              "id": "ID_MIA_2026-11-08",
+              "isCOMP": true,
+              "isDOLLARSOFF": false,
+              "isFREEPLAY": false,
+              "isGOBO": false,
+              "isGTY": false,
+              "itineraryCode": "ID07W746",
+              "itineraryDescription": "7 NIGHT WESTERN CARIBBEAN & PERFECT DAY",
+              "itineraryName": "Western Caribbean & Perfect Day",
+              "nextCruiseBonus": null,
+              "nextCruiseBonusPerkCode": null,
+              "perks": null,
+              "roomType": "Junior Suite",
+              "roomTypeList": [
+                {
+                  "code": "JUNIOR SUITE",
+                  "name": "Junior Suite"
+                }
+              ],
+              "sailDate": "2026-11-08",
+              "sailingType": null,
+              "shipBrand": null,
+              "shipCode": "ID",
+              "shipName": "Independence of the Seas",
+              "totalNights": 7
+            },
+            {
+              "DOLLARSOFF_AMT": 0,
+              "FREEPLAY_AMT": 0,
+              "departurePort": {
+                "code": "TPA",
+                "name": "Tampa"
+              },
+              "id": "RD_TPA_2026-11-14",
+              "isCOMP": true,
+              "isDOLLARSOFF": false,
+              "isFREEPLAY": false,
+              "isGOBO": false,
+              "isGTY": false,
+              "itineraryCode": "RD07W762",
+              "itineraryDescription": "7 NIGHT WESTERN CARIBBEAN CRUISE",
+              "itineraryName": "Western Caribbean Cruise",
+              "nextCruiseBonus": null,
+              "nextCruiseBonusPerkCode": null,
+              "perks": null,
+              "roomType": "Junior Suite",
+              "roomTypeList": [
+                {
+                  "code": "JUNIOR SUITE",
+                  "name": "Junior Suite"
+                }
+              ],
+              "sailDate": "2026-11-14",
+              "sailingType": null,
+              "shipBrand": null,
+              "shipCode": "RD",
+              "shipName": "Radiance of the Seas",
+              "totalNights": 7
+            },
+            {
+              "DOLLARSOFF_AMT": 0,
+              "FREEPLAY_AMT": 0,
+              "departurePort": {
+                "code": "MIA",
+                "name": "Miami"
+              },
+              "id": "AL_MIA_2026-11-15",
+              "isCOMP": true,
+              "isDOLLARSOFF": false,
+              "isFREEPLAY": false,
+              "isGOBO": false,
+              "isGTY": false,
+              "itineraryCode": "AL07W756",
+              "itineraryDescription": "7 NIGHT WESTERN CARIBBEAN & PERFECT DAY",
+              "itineraryName": "Western Caribbean & Perfect Day",
+              "nextCruiseBonus": null,
+              "nextCruiseBonusPerkCode": null,
+              "perks": null,
+              "roomType": "Junior Suite",
+              "roomTypeList": [
+                {
+                  "code": "JUNIOR SUITE",
+                  "name": "Junior Suite"
+                }
+              ],
+              "sailDate": "2026-11-15",
+              "sailingType": null,
+              "shipBrand": null,
+              "shipCode": "AL",
+              "shipName": "Allure of the Seas",
+              "totalNights": 7
+            },
+            {
+              "DOLLARSOFF_AMT": 0,
+              "FREEPLAY_AMT": 0,
+              "departurePort": {
+                "code": "MIA",
+                "name": "Miami"
+              },
+              "id": "ID_MIA_2026-11-15",
+              "isCOMP": true,
+              "isDOLLARSOFF": false,
+              "isFREEPLAY": false,
+              "isGOBO": false,
+              "isGTY": false,
+              "itineraryCode": "ID07E512",
+              "itineraryDescription": "7 NIGHT EASTERN CARIBBEAN & PERFECT DAY",
+              "itineraryName": "Eastern Caribbean & Perfect Day",
+              "nextCruiseBonus": null,
+              "nextCruiseBonusPerkCode": null,
+              "perks": null,
+              "roomType": "Junior Suite",
+              "roomTypeList": [
+                {
+                  "code": "JUNIOR SUITE",
+                  "name": "Junior Suite"
+                }
+              ],
+              "sailDate": "2026-11-15",
+              "sailingType": null,
+              "shipBrand": null,
+              "shipCode": "ID",
+              "shipName": "Independence of the Seas",
+              "totalNights": 7
+            },
+            {
+              "DOLLARSOFF_AMT": 0,
+              "FREEPLAY_AMT": 0,
+              "departurePort": {
+                "code": "FLL",
+                "name": "Fort Lauderdale"
+              },
+              "id": "BR_FLL_2026-11-16",
+              "isCOMP": true,
+              "isDOLLARSOFF": false,
+              "isFREEPLAY": false,
+              "isGOBO": false,
+              "isGTY": false,
+              "itineraryCode": "BR4BH435",
+              "itineraryDescription": "4 NIGHT BAHAMAS GETAWAY CRUISE",
+              "itineraryName": "Bahamas Getaway Cruise",
+              "nextCruiseBonus": null,
+              "nextCruiseBonusPerkCode": null,
+              "perks": null,
+              "roomType": "Junior Suite",
+              "roomTypeList": [
+                {
+                  "code": "JUNIOR SUITE",
+                  "name": "Junior Suite"
+                }
+              ],
+              "sailDate": "2026-11-16",
+              "sailingType": null,
+              "shipBrand": null,
+              "shipCode": "BR",
+              "shipName": "Brilliance of the Seas",
+              "totalNights": 4
+            },
+            {
+              "DOLLARSOFF_AMT": 0,
+              "FREEPLAY_AMT": 0,
+              "departurePort": {
+                "code": "MIA",
+                "name": "Miami"
+              },
+              "id": "ID_MIA_2026-11-22",
+              "isCOMP": true,
+              "isDOLLARSOFF": false,
+              "isFREEPLAY": false,
+              "isGOBO": false,
+              "isGTY": false,
+              "itineraryCode": "ID07W747",
+              "itineraryDescription": "7 NIGHT WESTERN CARIBBEAN  CRUISE",
+              "itineraryName": "Western Caribbean  Cruise",
+              "nextCruiseBonus": null,
+              "nextCruiseBonusPerkCode": null,
+              "perks": null,
+              "roomType": "Junior Suite",
+              "roomTypeList": [
+                {
+                  "code": "JUNIOR SUITE",
+                  "name": "Junior Suite"
+                }
+              ],
+              "sailDate": "2026-11-22",
+              "sailingType": null,
+              "shipBrand": null,
+              "shipCode": "ID",
+              "shipName": "Independence of the Seas",
+              "totalNights": 7
+            },
+            {
+              "DOLLARSOFF_AMT": 0,
+              "FREEPLAY_AMT": 0,
+              "departurePort": {
+                "code": "FLL",
+                "name": "Fort Lauderdale"
+              },
+              "id": "BR_FLL_2026-11-23",
+              "isCOMP": true,
+              "isDOLLARSOFF": false,
+              "isFREEPLAY": false,
+              "isGOBO": false,
+              "isGTY": false,
+              "itineraryCode": "BR4BH436",
+              "itineraryDescription": "4 NIGHT BAHAMAS GETAWAY CRUISE",
+              "itineraryName": "Bahamas Getaway Cruise",
+              "nextCruiseBonus": null,
+              "nextCruiseBonusPerkCode": null,
+              "perks": null,
+              "roomType": "Junior Suite",
+              "roomTypeList": [
+                {
+                  "code": "JUNIOR SUITE",
+                  "name": "Junior Suite"
+                }
+              ],
+              "sailDate": "2026-11-23",
+              "sailingType": null,
+              "shipBrand": null,
+              "shipCode": "BR",
+              "shipName": "Brilliance of the Seas",
+              "totalNights": 4
+            },
+            {
+              "DOLLARSOFF_AMT": 0,
+              "FREEPLAY_AMT": 0,
+              "departurePort": {
+                "code": "TPA",
+                "name": "Tampa"
+              },
+              "id": "RD_TPA_2026-11-28",
+              "isCOMP": true,
+              "isDOLLARSOFF": false,
+              "isFREEPLAY": false,
+              "isGOBO": false,
+              "isGTY": false,
+              "itineraryCode": "RD07W764",
+              "itineraryDescription": "7 NIGHT WESTERN CARIBBEAN CRUISE",
+              "itineraryName": "Western Caribbean Cruise",
+              "nextCruiseBonus": null,
+              "nextCruiseBonusPerkCode": null,
+              "perks": null,
+              "roomType": "Junior Suite",
+              "roomTypeList": [
+                {
+                  "code": "JUNIOR SUITE",
+                  "name": "Junior Suite"
+                }
+              ],
+              "sailDate": "2026-11-28",
+              "sailingType": null,
+              "shipBrand": null,
+              "shipCode": "RD",
+              "shipName": "Radiance of the Seas",
+              "totalNights": 7
+            },
+            {
+              "DOLLARSOFF_AMT": 0,
+              "FREEPLAY_AMT": 0,
+              "departurePort": {
+                "code": "MIA",
+                "name": "Miami"
+              },
+              "id": "AL_MIA_2026-11-29",
+              "isCOMP": true,
+              "isDOLLARSOFF": false,
+              "isFREEPLAY": false,
+              "isGOBO": false,
+              "isGTY": false,
+              "itineraryCode": "AL07W756",
+              "itineraryDescription": "7 NIGHT WESTERN CARIBBEAN & PERFECT DAY",
+              "itineraryName": "Western Caribbean & Perfect Day",
+              "nextCruiseBonus": null,
+              "nextCruiseBonusPerkCode": null,
+              "perks": null,
+              "roomType": "Junior Suite",
+              "roomTypeList": [
+                {
+                  "code": "JUNIOR SUITE",
+                  "name": "Junior Suite"
+                }
+              ],
+              "sailDate": "2026-11-29",
+              "sailingType": null,
+              "shipBrand": null,
+              "shipCode": "AL",
+              "shipName": "Allure of the Seas",
+              "totalNights": 7
+            },
+            {
+              "DOLLARSOFF_AMT": 0,
+              "FREEPLAY_AMT": 0,
+              "departurePort": {
+                "code": "MIA",
+                "name": "Miami"
+              },
+              "id": "ID_MIA_2026-11-29",
+              "isCOMP": true,
+              "isDOLLARSOFF": false,
+              "isFREEPLAY": false,
+              "isGOBO": false,
+              "isGTY": false,
+              "itineraryCode": "ID07E528",
+              "itineraryDescription": "7 NIGHT EASTERN CARIBBEAN & PERFECT DAY",
+              "itineraryName": "Eastern Caribbean & Perfect Day",
+              "nextCruiseBonus": null,
+              "nextCruiseBonusPerkCode": null,
+              "perks": null,
+              "roomType": "Junior Suite",
+              "roomTypeList": [
+                {
+                  "code": "JUNIOR SUITE",
+                  "name": "Junior Suite"
+                }
+              ],
+              "sailDate": "2026-11-29",
+              "sailingType": null,
+              "shipBrand": null,
+              "shipCode": "ID",
+              "shipName": "Independence of the Seas",
+              "totalNights": 7
+            },
+            {
+              "DOLLARSOFF_AMT": 0,
+              "FREEPLAY_AMT": 0,
+              "departurePort": {
+                "code": "FLL",
+                "name": "Fort Lauderdale"
+              },
+              "id": "BR_FLL_2026-11-30",
+              "isCOMP": true,
+              "isDOLLARSOFF": false,
+              "isFREEPLAY": false,
+              "isGOBO": false,
+              "isGTY": false,
+              "itineraryCode": "BR4BH437",
+              "itineraryDescription": "4 NIGHT BAHAMAS & PERFECT DAY CRUISE",
+              "itineraryName": "Bahamas & Perfect Day Cruise",
+              "nextCruiseBonus": null,
+              "nextCruiseBonusPerkCode": null,
+              "perks": null,
+              "roomType": "Junior Suite",
+              "roomTypeList": [
+                {
+                  "code": "JUNIOR SUITE",
+                  "name": "Junior Suite"
+                }
+              ],
+              "sailDate": "2026-11-30",
+              "sailingType": null,
+              "shipBrand": null,
+              "shipCode": "BR",
+              "shipName": "Brilliance of the Seas",
+              "totalNights": 4
+            }
+          ],
+          "startDate": "2026-04-13T13:00:00.000Z",
+          "status": "Active",
+          "tags": [],
+          "tradeInValue": 0
+        },
+        "campaignType": "Stateroom Offer",
+        "certificateNumber": null,
+        "playerOfferAgencyId": "109638",
+        "playerOfferId": "0ebdac68-1817-4592-802b-85bee4e41dc9",
+        "redeemInfo": null,
+        "source": "COH",
+        "status": "active",
+        "useSmartForm": true
+      },
+      "sailings": [
+        {
+          "rcSailingId": "JW_FLL_2026-09-21",
+          "ship": "Jewel of the Seas",
+          "sailDate": "2026-09-21",
+          "returnDate": "2026-09-25",
+          "nights": 4,
+          "itineraryName": "Bahamas Getaway Cruise",
+          "region": "Bahamas",
+          "departurePort": "Fort Lauderdale",
+          "portsOfCall": null,
+          "stateroomCategory": "Junior Suite",
+          "priceAfterOffer": null,
+          "taxesFees": null,
+          "raw": {
+            "DOLLARSOFF_AMT": 0,
+            "FREEPLAY_AMT": 0,
+            "departurePort": {
+              "code": "FLL",
+              "name": "Fort Lauderdale"
+            },
+            "id": "JW_FLL_2026-09-21",
+            "isCOMP": true,
+            "isDOLLARSOFF": false,
+            "isFREEPLAY": false,
+            "isGOBO": false,
+            "isGTY": false,
+            "itineraryCode": "JW4BH433",
+            "itineraryDescription": "4 NIGHT BAHAMAS GETAWAY CRUISE",
+            "itineraryName": "Bahamas Getaway Cruise",
+            "nextCruiseBonus": null,
+            "nextCruiseBonusPerkCode": null,
+            "perks": null,
+            "roomType": "Junior Suite",
+            "roomTypeList": [
+              {
+                "code": "JUNIOR SUITE",
+                "name": "Junior Suite"
+              }
+            ],
+            "sailDate": "2026-09-21",
+            "sailingType": null,
+            "shipBrand": null,
+            "shipCode": "JW",
+            "shipName": "Jewel of the Seas",
+            "totalNights": 4
+          }
+        },
+        {
+          "rcSailingId": "FR_MIA_2026-10-22",
+          "ship": "Freedom of the Seas",
+          "sailDate": "2026-10-22",
+          "returnDate": "2026-10-31",
+          "nights": 9,
+          "itineraryName": "Southern Caribbean Cruise",
+          "region": "Southern Caribbean",
+          "departurePort": "Miami",
+          "portsOfCall": null,
+          "stateroomCategory": "Junior Suite",
+          "priceAfterOffer": null,
+          "taxesFees": null,
+          "raw": {
+            "DOLLARSOFF_AMT": 0,
+            "FREEPLAY_AMT": 0,
+            "departurePort": {
+              "code": "MIA",
+              "name": "Miami"
+            },
+            "id": "FR_MIA_2026-10-22",
+            "isCOMP": true,
+            "isDOLLARSOFF": false,
+            "isFREEPLAY": false,
+            "isGOBO": false,
+            "isGTY": false,
+            "itineraryCode": "FR09D173",
+            "itineraryDescription": "9 NIGHT SOUTHERN CARIBBEAN CRUISE",
+            "itineraryName": "Southern Caribbean Cruise",
+            "nextCruiseBonus": null,
+            "nextCruiseBonusPerkCode": null,
+            "perks": null,
+            "roomType": "Junior Suite",
+            "roomTypeList": [
+              {
+                "code": "JUNIOR SUITE",
+                "name": "Junior Suite"
+              }
+            ],
+            "sailDate": "2026-10-22",
+            "sailingType": null,
+            "shipBrand": null,
+            "shipCode": "FR",
+            "shipName": "Freedom of the Seas",
+            "totalNights": 9
+          }
+        },
+        {
+          "rcSailingId": "AD_PCN_2026-10-24",
+          "ship": "Adventure of the Seas",
+          "sailDate": "2026-10-24",
+          "returnDate": "2026-10-30",
+          "nights": 6,
+          "itineraryName": "Western Caribbean & Perfect Day",
+          "region": "Western Caribbean",
+          "departurePort": "Orlando (Port Canaveral)",
+          "portsOfCall": null,
+          "stateroomCategory": "Junior Suite",
+          "priceAfterOffer": null,
+          "taxesFees": null,
+          "raw": {
+            "DOLLARSOFF_AMT": 0,
+            "FREEPLAY_AMT": 0,
+            "departurePort": {
+              "code": "PCN",
+              "name": "Orlando (Port Canaveral)"
+            },
+            "id": "AD_PCN_2026-10-24",
+            "isCOMP": true,
+            "isDOLLARSOFF": false,
+            "isFREEPLAY": false,
+            "isGOBO": false,
+            "isGTY": false,
+            "itineraryCode": "AD06W279",
+            "itineraryDescription": "6 NIGHT WESTERN CARIBBEAN & PERFECT DAY",
+            "itineraryName": "Western Caribbean & Perfect Day",
+            "nextCruiseBonus": null,
+            "nextCruiseBonusPerkCode": null,
+            "perks": null,
+            "roomType": "Junior Suite",
+            "roomTypeList": [
+              {
+                "code": "JUNIOR SUITE",
+                "name": "Junior Suite"
+              }
+            ],
+            "sailDate": "2026-10-24",
+            "sailingType": null,
+            "shipBrand": null,
+            "shipCode": "AD",
+            "shipName": "Adventure of the Seas",
+            "totalNights": 6
+          }
+        },
+        {
+          "rcSailingId": "AD_PCN_2026-10-30",
+          "ship": "Adventure of the Seas",
+          "sailDate": "2026-10-30",
+          "returnDate": "2026-11-05",
+          "nights": 6,
+          "itineraryName": "Western Caribbean & Perfect Day",
+          "region": "Western Caribbean",
+          "departurePort": "Orlando (Port Canaveral)",
+          "portsOfCall": null,
+          "stateroomCategory": "Junior Suite",
+          "priceAfterOffer": null,
+          "taxesFees": null,
+          "raw": {
+            "DOLLARSOFF_AMT": 0,
+            "FREEPLAY_AMT": 0,
+            "departurePort": {
+              "code": "PCN",
+              "name": "Orlando (Port Canaveral)"
+            },
+            "id": "AD_PCN_2026-10-30",
+            "isCOMP": true,
+            "isDOLLARSOFF": false,
+            "isFREEPLAY": false,
+            "isGOBO": false,
+            "isGTY": false,
+            "itineraryCode": "AD06W280",
+            "itineraryDescription": "6 NIGHT WESTERN CARIBBEAN & PERFECT DAY",
+            "itineraryName": "Western Caribbean & Perfect Day",
+            "nextCruiseBonus": null,
+            "nextCruiseBonusPerkCode": null,
+            "perks": null,
+            "roomType": "Junior Suite",
+            "roomTypeList": [
+              {
+                "code": "JUNIOR SUITE",
+                "name": "Junior Suite"
+              }
+            ],
+            "sailDate": "2026-10-30",
+            "sailingType": null,
+            "shipBrand": null,
+            "shipCode": "AD",
+            "shipName": "Adventure of the Seas",
+            "totalNights": 6
+          }
+        },
+        {
+          "rcSailingId": "RD_TPA_2026-11-07",
+          "ship": "Radiance of the Seas",
+          "sailDate": "2026-11-07",
+          "returnDate": "2026-11-14",
+          "nights": 7,
+          "itineraryName": "Western Caribbean Cruise",
+          "region": "Western Caribbean",
+          "departurePort": "Tampa",
+          "portsOfCall": null,
+          "stateroomCategory": "Junior Suite",
+          "priceAfterOffer": null,
+          "taxesFees": null,
+          "raw": {
+            "DOLLARSOFF_AMT": 0,
+            "FREEPLAY_AMT": 0,
+            "departurePort": {
+              "code": "TPA",
+              "name": "Tampa"
+            },
+            "id": "RD_TPA_2026-11-07",
+            "isCOMP": true,
+            "isDOLLARSOFF": false,
+            "isFREEPLAY": false,
+            "isGOBO": false,
+            "isGTY": false,
+            "itineraryCode": "RD07W770",
+            "itineraryDescription": "7 NIGHT WESTERN CARIBBEAN CRUISE",
+            "itineraryName": "Western Caribbean Cruise",
+            "nextCruiseBonus": null,
+            "nextCruiseBonusPerkCode": null,
+            "perks": null,
+            "roomType": "Junior Suite",
+            "roomTypeList": [
+              {
+                "code": "JUNIOR SUITE",
+                "name": "Junior Suite"
+              }
+            ],
+            "sailDate": "2026-11-07",
+            "sailingType": null,
+            "shipBrand": null,
+            "shipCode": "RD",
+            "shipName": "Radiance of the Seas",
+            "totalNights": 7
+          }
+        },
+        {
+          "rcSailingId": "ID_MIA_2026-11-08",
+          "ship": "Independence of the Seas",
+          "sailDate": "2026-11-08",
+          "returnDate": "2026-11-15",
+          "nights": 7,
+          "itineraryName": "Western Caribbean & Perfect Day",
+          "region": "Western Caribbean",
+          "departurePort": "Miami",
+          "portsOfCall": null,
+          "stateroomCategory": "Junior Suite",
+          "priceAfterOffer": null,
+          "taxesFees": null,
+          "raw": {
+            "DOLLARSOFF_AMT": 0,
+            "FREEPLAY_AMT": 0,
+            "departurePort": {
+              "code": "MIA",
+              "name": "Miami"
+            },
+            "id": "ID_MIA_2026-11-08",
+            "isCOMP": true,
+            "isDOLLARSOFF": false,
+            "isFREEPLAY": false,
+            "isGOBO": false,
+            "isGTY": false,
+            "itineraryCode": "ID07W746",
+            "itineraryDescription": "7 NIGHT WESTERN CARIBBEAN & PERFECT DAY",
+            "itineraryName": "Western Caribbean & Perfect Day",
+            "nextCruiseBonus": null,
+            "nextCruiseBonusPerkCode": null,
+            "perks": null,
+            "roomType": "Junior Suite",
+            "roomTypeList": [
+              {
+                "code": "JUNIOR SUITE",
+                "name": "Junior Suite"
+              }
+            ],
+            "sailDate": "2026-11-08",
+            "sailingType": null,
+            "shipBrand": null,
+            "shipCode": "ID",
+            "shipName": "Independence of the Seas",
+            "totalNights": 7
+          }
+        },
+        {
+          "rcSailingId": "RD_TPA_2026-11-14",
+          "ship": "Radiance of the Seas",
+          "sailDate": "2026-11-14",
+          "returnDate": "2026-11-21",
+          "nights": 7,
+          "itineraryName": "Western Caribbean Cruise",
+          "region": "Western Caribbean",
+          "departurePort": "Tampa",
+          "portsOfCall": null,
+          "stateroomCategory": "Junior Suite",
+          "priceAfterOffer": null,
+          "taxesFees": null,
+          "raw": {
+            "DOLLARSOFF_AMT": 0,
+            "FREEPLAY_AMT": 0,
+            "departurePort": {
+              "code": "TPA",
+              "name": "Tampa"
+            },
+            "id": "RD_TPA_2026-11-14",
+            "isCOMP": true,
+            "isDOLLARSOFF": false,
+            "isFREEPLAY": false,
+            "isGOBO": false,
+            "isGTY": false,
+            "itineraryCode": "RD07W762",
+            "itineraryDescription": "7 NIGHT WESTERN CARIBBEAN CRUISE",
+            "itineraryName": "Western Caribbean Cruise",
+            "nextCruiseBonus": null,
+            "nextCruiseBonusPerkCode": null,
+            "perks": null,
+            "roomType": "Junior Suite",
+            "roomTypeList": [
+              {
+                "code": "JUNIOR SUITE",
+                "name": "Junior Suite"
+              }
+            ],
+            "sailDate": "2026-11-14",
+            "sailingType": null,
+            "shipBrand": null,
+            "shipCode": "RD",
+            "shipName": "Radiance of the Seas",
+            "totalNights": 7
+          }
+        },
+        {
+          "rcSailingId": "AL_MIA_2026-11-15",
+          "ship": "Allure of the Seas",
+          "sailDate": "2026-11-15",
+          "returnDate": "2026-11-22",
+          "nights": 7,
+          "itineraryName": "Western Caribbean & Perfect Day",
+          "region": "Western Caribbean",
+          "departurePort": "Miami",
+          "portsOfCall": null,
+          "stateroomCategory": "Junior Suite",
+          "priceAfterOffer": null,
+          "taxesFees": null,
+          "raw": {
+            "DOLLARSOFF_AMT": 0,
+            "FREEPLAY_AMT": 0,
+            "departurePort": {
+              "code": "MIA",
+              "name": "Miami"
+            },
+            "id": "AL_MIA_2026-11-15",
+            "isCOMP": true,
+            "isDOLLARSOFF": false,
+            "isFREEPLAY": false,
+            "isGOBO": false,
+            "isGTY": false,
+            "itineraryCode": "AL07W756",
+            "itineraryDescription": "7 NIGHT WESTERN CARIBBEAN & PERFECT DAY",
+            "itineraryName": "Western Caribbean & Perfect Day",
+            "nextCruiseBonus": null,
+            "nextCruiseBonusPerkCode": null,
+            "perks": null,
+            "roomType": "Junior Suite",
+            "roomTypeList": [
+              {
+                "code": "JUNIOR SUITE",
+                "name": "Junior Suite"
+              }
+            ],
+            "sailDate": "2026-11-15",
+            "sailingType": null,
+            "shipBrand": null,
+            "shipCode": "AL",
+            "shipName": "Allure of the Seas",
+            "totalNights": 7
+          }
+        },
+        {
+          "rcSailingId": "ID_MIA_2026-11-15",
+          "ship": "Independence of the Seas",
+          "sailDate": "2026-11-15",
+          "returnDate": "2026-11-22",
+          "nights": 7,
+          "itineraryName": "Eastern Caribbean & Perfect Day",
+          "region": "Eastern Caribbean",
+          "departurePort": "Miami",
+          "portsOfCall": null,
+          "stateroomCategory": "Junior Suite",
+          "priceAfterOffer": null,
+          "taxesFees": null,
+          "raw": {
+            "DOLLARSOFF_AMT": 0,
+            "FREEPLAY_AMT": 0,
+            "departurePort": {
+              "code": "MIA",
+              "name": "Miami"
+            },
+            "id": "ID_MIA_2026-11-15",
+            "isCOMP": true,
+            "isDOLLARSOFF": false,
+            "isFREEPLAY": false,
+            "isGOBO": false,
+            "isGTY": false,
+            "itineraryCode": "ID07E512",
+            "itineraryDescription": "7 NIGHT EASTERN CARIBBEAN & PERFECT DAY",
+            "itineraryName": "Eastern Caribbean & Perfect Day",
+            "nextCruiseBonus": null,
+            "nextCruiseBonusPerkCode": null,
+            "perks": null,
+            "roomType": "Junior Suite",
+            "roomTypeList": [
+              {
+                "code": "JUNIOR SUITE",
+                "name": "Junior Suite"
+              }
+            ],
+            "sailDate": "2026-11-15",
+            "sailingType": null,
+            "shipBrand": null,
+            "shipCode": "ID",
+            "shipName": "Independence of the Seas",
+            "totalNights": 7
+          }
+        },
+        {
+          "rcSailingId": "BR_FLL_2026-11-16",
+          "ship": "Brilliance of the Seas",
+          "sailDate": "2026-11-16",
+          "returnDate": "2026-11-20",
+          "nights": 4,
+          "itineraryName": "Bahamas Getaway Cruise",
+          "region": "Bahamas",
+          "departurePort": "Fort Lauderdale",
+          "portsOfCall": null,
+          "stateroomCategory": "Junior Suite",
+          "priceAfterOffer": null,
+          "taxesFees": null,
+          "raw": {
+            "DOLLARSOFF_AMT": 0,
+            "FREEPLAY_AMT": 0,
+            "departurePort": {
+              "code": "FLL",
+              "name": "Fort Lauderdale"
+            },
+            "id": "BR_FLL_2026-11-16",
+            "isCOMP": true,
+            "isDOLLARSOFF": false,
+            "isFREEPLAY": false,
+            "isGOBO": false,
+            "isGTY": false,
+            "itineraryCode": "BR4BH435",
+            "itineraryDescription": "4 NIGHT BAHAMAS GETAWAY CRUISE",
+            "itineraryName": "Bahamas Getaway Cruise",
+            "nextCruiseBonus": null,
+            "nextCruiseBonusPerkCode": null,
+            "perks": null,
+            "roomType": "Junior Suite",
+            "roomTypeList": [
+              {
+                "code": "JUNIOR SUITE",
+                "name": "Junior Suite"
+              }
+            ],
+            "sailDate": "2026-11-16",
+            "sailingType": null,
+            "shipBrand": null,
+            "shipCode": "BR",
+            "shipName": "Brilliance of the Seas",
+            "totalNights": 4
+          }
+        },
+        {
+          "rcSailingId": "ID_MIA_2026-11-22",
+          "ship": "Independence of the Seas",
+          "sailDate": "2026-11-22",
+          "returnDate": "2026-11-29",
+          "nights": 7,
+          "itineraryName": "Western Caribbean  Cruise",
+          "region": "Western Caribbean",
+          "departurePort": "Miami",
+          "portsOfCall": null,
+          "stateroomCategory": "Junior Suite",
+          "priceAfterOffer": null,
+          "taxesFees": null,
+          "raw": {
+            "DOLLARSOFF_AMT": 0,
+            "FREEPLAY_AMT": 0,
+            "departurePort": {
+              "code": "MIA",
+              "name": "Miami"
+            },
+            "id": "ID_MIA_2026-11-22",
+            "isCOMP": true,
+            "isDOLLARSOFF": false,
+            "isFREEPLAY": false,
+            "isGOBO": false,
+            "isGTY": false,
+            "itineraryCode": "ID07W747",
+            "itineraryDescription": "7 NIGHT WESTERN CARIBBEAN  CRUISE",
+            "itineraryName": "Western Caribbean  Cruise",
+            "nextCruiseBonus": null,
+            "nextCruiseBonusPerkCode": null,
+            "perks": null,
+            "roomType": "Junior Suite",
+            "roomTypeList": [
+              {
+                "code": "JUNIOR SUITE",
+                "name": "Junior Suite"
+              }
+            ],
+            "sailDate": "2026-11-22",
+            "sailingType": null,
+            "shipBrand": null,
+            "shipCode": "ID",
+            "shipName": "Independence of the Seas",
+            "totalNights": 7
+          }
+        },
+        {
+          "rcSailingId": "BR_FLL_2026-11-23",
+          "ship": "Brilliance of the Seas",
+          "sailDate": "2026-11-23",
+          "returnDate": "2026-11-27",
+          "nights": 4,
+          "itineraryName": "Bahamas Getaway Cruise",
+          "region": "Bahamas",
+          "departurePort": "Fort Lauderdale",
+          "portsOfCall": null,
+          "stateroomCategory": "Junior Suite",
+          "priceAfterOffer": null,
+          "taxesFees": null,
+          "raw": {
+            "DOLLARSOFF_AMT": 0,
+            "FREEPLAY_AMT": 0,
+            "departurePort": {
+              "code": "FLL",
+              "name": "Fort Lauderdale"
+            },
+            "id": "BR_FLL_2026-11-23",
+            "isCOMP": true,
+            "isDOLLARSOFF": false,
+            "isFREEPLAY": false,
+            "isGOBO": false,
+            "isGTY": false,
+            "itineraryCode": "BR4BH436",
+            "itineraryDescription": "4 NIGHT BAHAMAS GETAWAY CRUISE",
+            "itineraryName": "Bahamas Getaway Cruise",
+            "nextCruiseBonus": null,
+            "nextCruiseBonusPerkCode": null,
+            "perks": null,
+            "roomType": "Junior Suite",
+            "roomTypeList": [
+              {
+                "code": "JUNIOR SUITE",
+                "name": "Junior Suite"
+              }
+            ],
+            "sailDate": "2026-11-23",
+            "sailingType": null,
+            "shipBrand": null,
+            "shipCode": "BR",
+            "shipName": "Brilliance of the Seas",
+            "totalNights": 4
+          }
+        },
+        {
+          "rcSailingId": "RD_TPA_2026-11-28",
+          "ship": "Radiance of the Seas",
+          "sailDate": "2026-11-28",
+          "returnDate": "2026-12-05",
+          "nights": 7,
+          "itineraryName": "Western Caribbean Cruise",
+          "region": "Western Caribbean",
+          "departurePort": "Tampa",
+          "portsOfCall": null,
+          "stateroomCategory": "Junior Suite",
+          "priceAfterOffer": null,
+          "taxesFees": null,
+          "raw": {
+            "DOLLARSOFF_AMT": 0,
+            "FREEPLAY_AMT": 0,
+            "departurePort": {
+              "code": "TPA",
+              "name": "Tampa"
+            },
+            "id": "RD_TPA_2026-11-28",
+            "isCOMP": true,
+            "isDOLLARSOFF": false,
+            "isFREEPLAY": false,
+            "isGOBO": false,
+            "isGTY": false,
+            "itineraryCode": "RD07W764",
+            "itineraryDescription": "7 NIGHT WESTERN CARIBBEAN CRUISE",
+            "itineraryName": "Western Caribbean Cruise",
+            "nextCruiseBonus": null,
+            "nextCruiseBonusPerkCode": null,
+            "perks": null,
+            "roomType": "Junior Suite",
+            "roomTypeList": [
+              {
+                "code": "JUNIOR SUITE",
+                "name": "Junior Suite"
+              }
+            ],
+            "sailDate": "2026-11-28",
+            "sailingType": null,
+            "shipBrand": null,
+            "shipCode": "RD",
+            "shipName": "Radiance of the Seas",
+            "totalNights": 7
+          }
+        },
+        {
+          "rcSailingId": "AL_MIA_2026-11-29",
+          "ship": "Allure of the Seas",
+          "sailDate": "2026-11-29",
+          "returnDate": "2026-12-06",
+          "nights": 7,
+          "itineraryName": "Western Caribbean & Perfect Day",
+          "region": "Western Caribbean",
+          "departurePort": "Miami",
+          "portsOfCall": null,
+          "stateroomCategory": "Junior Suite",
+          "priceAfterOffer": null,
+          "taxesFees": null,
+          "raw": {
+            "DOLLARSOFF_AMT": 0,
+            "FREEPLAY_AMT": 0,
+            "departurePort": {
+              "code": "MIA",
+              "name": "Miami"
+            },
+            "id": "AL_MIA_2026-11-29",
+            "isCOMP": true,
+            "isDOLLARSOFF": false,
+            "isFREEPLAY": false,
+            "isGOBO": false,
+            "isGTY": false,
+            "itineraryCode": "AL07W756",
+            "itineraryDescription": "7 NIGHT WESTERN CARIBBEAN & PERFECT DAY",
+            "itineraryName": "Western Caribbean & Perfect Day",
+            "nextCruiseBonus": null,
+            "nextCruiseBonusPerkCode": null,
+            "perks": null,
+            "roomType": "Junior Suite",
+            "roomTypeList": [
+              {
+                "code": "JUNIOR SUITE",
+                "name": "Junior Suite"
+              }
+            ],
+            "sailDate": "2026-11-29",
+            "sailingType": null,
+            "shipBrand": null,
+            "shipCode": "AL",
+            "shipName": "Allure of the Seas",
+            "totalNights": 7
+          }
+        },
+        {
+          "rcSailingId": "ID_MIA_2026-11-29",
+          "ship": "Independence of the Seas",
+          "sailDate": "2026-11-29",
+          "returnDate": "2026-12-06",
+          "nights": 7,
+          "itineraryName": "Eastern Caribbean & Perfect Day",
+          "region": "Eastern Caribbean",
+          "departurePort": "Miami",
+          "portsOfCall": null,
+          "stateroomCategory": "Junior Suite",
+          "priceAfterOffer": null,
+          "taxesFees": null,
+          "raw": {
+            "DOLLARSOFF_AMT": 0,
+            "FREEPLAY_AMT": 0,
+            "departurePort": {
+              "code": "MIA",
+              "name": "Miami"
+            },
+            "id": "ID_MIA_2026-11-29",
+            "isCOMP": true,
+            "isDOLLARSOFF": false,
+            "isFREEPLAY": false,
+            "isGOBO": false,
+            "isGTY": false,
+            "itineraryCode": "ID07E528",
+            "itineraryDescription": "7 NIGHT EASTERN CARIBBEAN & PERFECT DAY",
+            "itineraryName": "Eastern Caribbean & Perfect Day",
+            "nextCruiseBonus": null,
+            "nextCruiseBonusPerkCode": null,
+            "perks": null,
+            "roomType": "Junior Suite",
+            "roomTypeList": [
+              {
+                "code": "JUNIOR SUITE",
+                "name": "Junior Suite"
+              }
+            ],
+            "sailDate": "2026-11-29",
+            "sailingType": null,
+            "shipBrand": null,
+            "shipCode": "ID",
+            "shipName": "Independence of the Seas",
+            "totalNights": 7
+          }
+        },
+        {
+          "rcSailingId": "BR_FLL_2026-11-30",
+          "ship": "Brilliance of the Seas",
+          "sailDate": "2026-11-30",
+          "returnDate": "2026-12-04",
+          "nights": 4,
+          "itineraryName": "Bahamas & Perfect Day Cruise",
+          "region": "Bahamas",
+          "departurePort": "Fort Lauderdale",
+          "portsOfCall": null,
+          "stateroomCategory": "Junior Suite",
+          "priceAfterOffer": null,
+          "taxesFees": null,
+          "raw": {
+            "DOLLARSOFF_AMT": 0,
+            "FREEPLAY_AMT": 0,
+            "departurePort": {
+              "code": "FLL",
+              "name": "Fort Lauderdale"
+            },
+            "id": "BR_FLL_2026-11-30",
+            "isCOMP": true,
+            "isDOLLARSOFF": false,
+            "isFREEPLAY": false,
+            "isGOBO": false,
+            "isGTY": false,
+            "itineraryCode": "BR4BH437",
+            "itineraryDescription": "4 NIGHT BAHAMAS & PERFECT DAY CRUISE",
+            "itineraryName": "Bahamas & Perfect Day Cruise",
+            "nextCruiseBonus": null,
+            "nextCruiseBonusPerkCode": null,
+            "perks": null,
+            "roomType": "Junior Suite",
+            "roomTypeList": [
+              {
+                "code": "JUNIOR SUITE",
+                "name": "Junior Suite"
+              }
+            ],
+            "sailDate": "2026-11-30",
+            "sailingType": null,
+            "shipBrand": null,
+            "shipCode": "BR",
+            "shipName": "Brilliance of the Seas",
+            "totalNights": 4
+          }
+        }
+      ]
+    }
+  ]
+}

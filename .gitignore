@@ -1,0 +1,10 @@
+node_modules
+.next
+out
+*.log
+.env*
+data.db
+data.db-journal
+data.db-shm
+data.db-wal
+extension/dist

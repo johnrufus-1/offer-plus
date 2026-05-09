@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "Club Royale Finder",
+  "version": "0.1.0",
+  "description": "Search and filter your Royal Caribbean Club Royale casino offers — sync once, browse anytime.",
+  "permissions": ["storage", "activeTab", "scripting", "alarms", "notifications"],
+  "host_permissions": [
+    "https://www.royalcaribbean.com/*"
+  ],
+  "action": {
+    "default_title": "Club Royale Finder",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.royalcaribbean.com/club-royale/*"],
+      "js": ["recorder.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://www.royalcaribbean.com/club-royale/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["recorder.js"],
+      "matches": ["https://www.royalcaribbean.com/*"]
+    },
+    {
+      "resources": ["dashboard.html", "dashboard.js", "dashboard.css", "db.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

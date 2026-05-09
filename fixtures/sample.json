@@ -1,0 +1,153 @@
+{
+  "offers": [
+    {
+      "rcOfferId": "FREE-INSIDE-7N-2026",
+      "title": "Free Inside Stateroom — Caribbean",
+      "description": "Complimentary inside stateroom on select 7-night Caribbean sailings.",
+      "compType": "Free Cruise",
+      "bookByDate": "2026-08-31",
+      "terms": "Single occupancy. Taxes & fees not included. Subject to availability.",
+      "raw": {},
+      "sailings": [
+        {
+          "rcSailingId": "SY-2026-03-08",
+          "ship": "Symphony of the Seas",
+          "sailDate": "2026-03-08",
+          "returnDate": "2026-03-15",
+          "nights": 7,
+          "itineraryName": "Western Caribbean",
+          "region": "Caribbean",
+          "departurePort": "Miami, FL",
+          "portsOfCall": ["Labadee", "Falmouth", "Cozumel", "CocoCay"],
+          "stateroomCategory": "Interior",
+          "priceAfterOffer": 0,
+          "taxesFees": 189.42,
+          "raw": {}
+        },
+        {
+          "rcSailingId": "WN-2026-04-12",
+          "ship": "Wonder of the Seas",
+          "sailDate": "2026-04-12",
+          "returnDate": "2026-04-19",
+          "nights": 7,
+          "itineraryName": "Eastern Caribbean",
+          "region": "Caribbean",
+          "departurePort": "Port Canaveral, FL",
+          "portsOfCall": ["CocoCay", "St. Thomas", "St. Maarten"],
+          "stateroomCategory": "Interior",
+          "priceAfterOffer": 0,
+          "taxesFees": 199.18,
+          "raw": {}
+        }
+      ]
+    },
+    {
+      "rcOfferId": "DISC-50-OCEANVIEW-2026",
+      "title": "50% Off Oceanview — Alaska",
+      "description": "Half-off oceanview stateroom on select Alaska sailings.",
+      "compType": "Discount",
+      "bookByDate": "2026-05-15",
+      "terms": "Double occupancy. Cannot combine with other offers.",
+      "raw": {},
+      "sailings": [
+        {
+          "rcSailingId": "OV-2026-06-21",
+          "ship": "Ovation of the Seas",
+          "sailDate": "2026-06-21",
+          "returnDate": "2026-06-28",
+          "nights": 7,
+          "itineraryName": "Alaska Glacier",
+          "region": "Alaska",
+          "departurePort": "Seattle, WA",
+          "portsOfCall": ["Juneau", "Skagway", "Tracy Arm", "Victoria"],
+          "stateroomCategory": "Oceanview",
+          "priceAfterOffer": 749,
+          "taxesFees": 248.55,
+          "raw": {}
+        }
+      ]
+    },
+    {
+      "rcOfferId": "CASH-500-3N-2026",
+      "title": "$500 Casino Cash — Bahamas Weekend",
+      "description": "$500 casino credit on select 3-night Bahamas getaways.",
+      "compType": "Casino Cash",
+      "bookByDate": "2026-04-30",
+      "terms": "Casino credit applied at time of sailing. Non-transferable.",
+      "raw": {},
+      "sailings": [
+        {
+          "rcSailingId": "MA-2026-05-01",
+          "ship": "Mariner of the Seas",
+          "sailDate": "2026-05-01",
+          "returnDate": "2026-05-04",
+          "nights": 3,
+          "itineraryName": "Bahamas & Perfect Day",
+          "region": "Bahamas",
+          "departurePort": "Port Canaveral, FL",
+          "portsOfCall": ["Nassau", "CocoCay"],
+          "stateroomCategory": "Interior",
+          "priceAfterOffer": 329,
+          "taxesFees": 92.14,
+          "raw": {}
+        },
+        {
+          "rcSailingId": "MA-2026-05-15",
+          "ship": "Mariner of the Seas",
+          "sailDate": "2026-05-15",
+          "returnDate": "2026-05-18",
+          "nights": 3,
+          "itineraryName": "Bahamas & Perfect Day",
+          "region": "Bahamas",
+          "departurePort": "Port Canaveral, FL",
+          "portsOfCall": ["Nassau", "CocoCay"],
+          "stateroomCategory": "Interior",
+          "priceAfterOffer": 339,
+          "taxesFees": 92.14,
+          "raw": {}
+        },
+        {
+          "rcSailingId": "IN-2026-09-04",
+          "ship": "Independence of the Seas",
+          "sailDate": "2026-09-04",
+          "returnDate": "2026-09-07",
+          "nights": 3,
+          "itineraryName": "Bahamas Long Weekend",
+          "region": "Bahamas",
+          "departurePort": "Fort Lauderdale, FL",
+          "portsOfCall": ["Nassau", "CocoCay"],
+          "stateroomCategory": "Interior",
+          "priceAfterOffer": 299,
+          "taxesFees": 88.0,
+          "raw": {}
+        }
+      ]
+    },
+    {
+      "rcOfferId": "FREE-BALCONY-MED-2026",
+      "title": "Free Balcony — Mediterranean",
+      "description": "Complimentary balcony stateroom on select Mediterranean sailings.",
+      "compType": "Free Cruise",
+      "bookByDate": "2026-03-31",
+      "terms": "Single occupancy. Airfare not included.",
+      "raw": {},
+      "sailings": [
+        {
+          "rcSailingId": "OD-2026-09-19",
+          "ship": "Odyssey of the Seas",
+          "sailDate": "2026-09-19",
+          "returnDate": "2026-09-29",
+          "nights": 10,
+          "itineraryName": "Greek Isles",
+          "region": "Europe",
+          "departurePort": "Civitavecchia (Rome), Italy",
+          "portsOfCall": ["Naples", "Santorini", "Mykonos", "Athens", "Kotor"],
+          "stateroomCategory": "Balcony",
+          "priceAfterOffer": 0,
+          "taxesFees": 412.5,
+          "raw": {}
+        }
+      ]
+    }
+  ]
+}

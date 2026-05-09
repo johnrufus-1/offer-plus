@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; }
+html, body { background: #0b0d10; color: #e8ecf2; }
+* { border-color: #222831; }
+
+@layer components {
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-border bg-panel px-2.5 py-1 text-xs text-text;
+  }
+  .chip-active {
+    @apply border-accent text-accent bg-accent/10;
+  }
+  .btn {
+    @apply inline-flex items-center gap-2 rounded-md border border-border bg-panel px-3 py-2 text-sm hover:border-accent transition;
+  }
+  .btn-primary {
+    @apply inline-flex items-center gap-2 rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent/90 transition;
+  }
+  .input {
+    @apply w-full rounded-md border border-border bg-panel px-3 py-2 text-sm placeholder:text-muted focus:outline-none focus:border-accent;
+  }
+  .card {
+    @apply rounded-xl border border-border bg-panel;
+  }
+}

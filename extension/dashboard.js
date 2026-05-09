@@ -1,0 +1,635 @@
+// dashboard.js — Club Royale Finder full-tab dashboard
+
+// ── State ──────────────────────────────────────────────────────────────────
+let allSailings = [];
+let favSet = new Set();
+let filters = { search: "", ships: new Set(), regions: new Set(), rooms: new Set(), minNights: 0, sailFrom: "", sailTo: "", favOnly: false };
+let sortKey = "sailDate";
+let view = "list";
+
+// ── Init ───────────────────────────────────────────────────────────────────
+async function init() {
+  restoreStateFromHash();
+  bindControls();
+  await loadData();
+}
+
+async function loadData() {
+  setStatus("Loading…");
+  try {
+    const resp = await chrome.runtime.sendMessage({ type: "GET_ALL" });
+    if (!resp?.ok) { setStatus("Error loading data"); return; }
+    allSailings = resp.data.sailings;
+    favSet = new Set(allSailings.filter((s) => s.isFavorite).map((s) => s.rcSailingId));
+    updateFavToggleLabel();
+    populateFacets();
+    render();
+    const syncResp = await chrome.runtime.sendMessage({ type: "GET_LAST_SYNC" });
+    if (syncResp?.lastSync) setStatus("Last sync: " + fmtDate(syncResp.lastSync));
+    else setStatus("Never synced — visit Club Royale offers page and click Sync");
+  } catch (e) {
+    setStatus("Error: " + e.message);
+  }
+}
+
+// ── Controls ───────────────────────────────────────────────────────────────
+function bindControls() {
+  document.getElementById("search").addEventListener("input", (e) => { filters.search = e.target.value; render(); });
+  document.getElementById("sort-select").addEventListener("change", (e) => { sortKey = e.target.value; render(); });
+  document.getElementById("nights-range").addEventListener("input", (e) => {
+    filters.minNights = +e.target.value;
+    document.getElementById("nights-val").textContent = filters.minNights === 0 ? "Any" : `≥ ${filters.minNights}n`;
+    render();
+  });
+  document.getElementById("sail-from").addEventListener("input", (e) => { filters.sailFrom = e.target.value; render(); });
+  document.getElementById("sail-to").addEventListener("input", (e) => { filters.sailTo = e.target.value; render(); });
+  document.getElementById("sail-preset-chips").addEventListener("click", (e) => {
+    const chip = e.target.closest(".chip");
+    if (!chip) return;
+    document.querySelectorAll("#sail-preset-chips .chip").forEach((c) => c.classList.remove("active"));
+    chip.classList.add("active");
+    const days = chip.dataset.days;
+    const customInputs = document.getElementById("sail-custom-inputs");
+    if (days === "custom") {
+      customInputs.style.display = "";
+      // Leave existing input values; #sail-from/#sail-to listeners drive the filter.
+    } else if (days === "0") {
+      filters.sailFrom = "";
+      filters.sailTo = "";
+      document.getElementById("sail-from").value = "";
+      document.getElementById("sail-to").value = "";
+      customInputs.style.display = "none";
+      render();
+    } else {
+      filters.sailFrom = todayISO();
+      filters.sailTo = addDaysISO(+days);
+      document.getElementById("sail-from").value = filters.sailFrom;
+      document.getElementById("sail-to").value = filters.sailTo;
+      customInputs.style.display = "none";
+      render();
+    }
+  });
+  document.querySelectorAll(".filter-action").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const target = btn.dataset.target; // ships | regions | rooms
+      const containerId = { ships: "ship-chips", regions: "region-chips", rooms: "room-chips" }[target];
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      filters[target].clear();
+      container.querySelectorAll(".chip.active").forEach((c) => c.classList.remove("active"));
+      render();
+    });
+  });
+  document.getElementById("reset-btn").addEventListener("click", resetFilters);
+  document.getElementById("sync-now-btn").addEventListener("click", syncNow);
+  document.getElementById("fav-toggle").addEventListener("click", () => {
+    filters.favOnly = !filters.favOnly;
+    document.getElementById("fav-toggle").classList.toggle("active", filters.favOnly);
+    render();
+  });
+  document.querySelectorAll("#view-toggle button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      view = btn.dataset.view;
+      document.querySelectorAll("#view-toggle button").forEach((b) => b.classList.toggle("active", b === btn));
+      document.getElementById("list-view").style.display = view === "list" ? "" : "none";
+      document.getElementById("calendar-view").style.display = view === "calendar" ? "" : "none";
+      render();
+    });
+  });
+}
+
+function resetFilters() {
+  filters = { search: "", ships: new Set(), regions: new Set(), rooms: new Set(), minNights: 0, sailFrom: "", sailTo: "" };
+  document.getElementById("search").value = "";
+  document.getElementById("nights-range").value = 0;
+  document.getElementById("nights-val").textContent = "Any";
+  document.getElementById("sail-from").value = "";
+  document.getElementById("sail-to").value = "";
+  document.querySelectorAll(".chip.active").forEach((c) => c.classList.remove("active"));
+  // Restore default "Any" preset chip
+  const anyChip = document.querySelector('#sail-preset-chips .chip[data-days="0"]');
+  if (anyChip) anyChip.classList.add("active");
+  document.getElementById("sail-custom-inputs").style.display = "none";
+  render();
+}
+
+async function syncNow() {
+  const btn = document.getElementById("sync-now-btn");
+  btn.disabled = true;
+  setStatus("Triggering sync…");
+  try {
+    const resp = await chrome.runtime.sendMessage({ type: "TRIGGER_SYNC" });
+    if (resp?.ok) {
+      setStatus("Sync triggered — watch the RC page for progress");
+      // Poll for new data after a delay
+      setTimeout(loadData, 8000);
+    } else {
+      setStatus("Sync failed: " + (resp?.error || "unknown error"));
+    }
+  } catch (e) {
+    setStatus("Error: " + e.message);
+  }
+  btn.disabled = false;
+}
+
+// ── Facets ─────────────────────────────────────────────────────────────────
+function populateFacets() {
+  const ships = [...new Set(allSailings.map((s) => s.ship).filter(Boolean))].sort();
+  const regions = [...new Set(allSailings.map((s) => s.region).filter(Boolean))].sort();
+  const rooms = [...new Set(allSailings.map((s) => s.stateroomCategory).filter(Boolean))].sort();
+
+  renderChips("ship-chips", ships, "ships");
+  renderChips("region-chips", regions, "regions");
+  renderChips("room-chips", rooms, "rooms");
+
+  const maxNights = Math.max(...allSailings.map((s) => s.nights || 0), 0);
+  document.getElementById("nights-range").max = maxNights;
+}
+
+function renderChips(containerId, values, filterKey) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = "";
+  for (const v of values) {
+    const chip = document.createElement("button");
+    chip.className = "chip";
+    chip.textContent = v;
+    chip.addEventListener("click", () => {
+      if (filters[filterKey].has(v)) filters[filterKey].delete(v);
+      else filters[filterKey].add(v);
+      chip.classList.toggle("active", filters[filterKey].has(v));
+      render();
+    });
+    el.appendChild(chip);
+  }
+}
+
+// ── Filtering + Sorting ────────────────────────────────────────────────────
+function applyFilters() {
+  const q = filters.search.toLowerCase();
+  return allSailings.filter((s) => {
+    if (filters.favOnly && !favSet.has(s.rcSailingId)) return false;
+    if (filters.ships.size && !filters.ships.has(s.ship)) return false;
+    if (filters.regions.size && !filters.regions.has(s.region)) return false;
+    if (filters.rooms.size && !filters.rooms.has(s.stateroomCategory)) return false;
+    if (filters.minNights > 0 && (s.nights || 0) < filters.minNights) return false;
+    if (filters.sailFrom && s.sailDate < filters.sailFrom) return false;
+    if (filters.sailTo && s.sailDate > filters.sailTo) return false;
+    if (q) {
+      const hay = [s.ship, s.itineraryName, s.region, s.departurePort, ...(s.portsOfCall || [])].join(" ").toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function applySorting(sailings) {
+  return [...sailings].sort((a, b) => {
+    switch (sortKey) {
+      case "sailDate": return (a.sailDate || "").localeCompare(b.sailDate || "");
+      case "sailDate-desc": return (b.sailDate || "").localeCompare(a.sailDate || "");
+      case "bookBy": return (a.offer?.bookByDate || "9999").localeCompare(b.offer?.bookByDate || "9999");
+      case "nights-desc": return (b.nights || 0) - (a.nights || 0);
+      case "nights": return (a.nights || 0) - (b.nights || 0);
+      default: return 0;
+    }
+  });
+}
+
+// ── Rendering ──────────────────────────────────────────────────────────────
+function render() {
+  const filtered = applyFilters();
+  const sorted = applySorting(filtered);
+  document.getElementById("result-count").textContent = `${sorted.length} sailing${sorted.length !== 1 ? "s" : ""} of ${allSailings.length}`;
+  if (view === "list") renderList(sorted);
+  else renderCalendar(sorted);
+  focusSailingFromHash();
+}
+
+function renderList(sailings) {
+  const el = document.getElementById("list-view");
+  if (!sailings.length) {
+    el.innerHTML = `<div class="empty-state"><h3>No sailings match</h3><p>Try adjusting your filters or syncing from the Club Royale offers page.</p></div>`;
+    return;
+  }
+  el.innerHTML = "";
+  for (const s of sailings) el.appendChild(buildCard(s));
+}
+
+function buildCard(s) {
+  const card = document.createElement("div");
+  card.className = "sailing-card";
+
+  const bookByDate = s.offer?.bookByDate;
+  const daysLeft = bookByDate ? daysUntil(bookByDate) : null;
+
+  const urgencyBadge = daysLeft !== null && daysLeft <= 7
+    ? `<span class="badge badge-warn">${daysLeft <= 0 ? "Expired" : `${daysLeft}d left`}</span>`
+    : "";
+
+  // Row 1: ship · offer code · stateroom · urgency badge · reminder · star
+  const offerCode = s.offer?.rcOfferId || s.offerId || "";
+  const isFav = favSet.has(s.rcSailingId);
+  const reminderLabel = s.reminder ? formatReminderShort(s.reminder.fireAt) : "Remind me";
+  const reminderActive = !!s.reminder;
+  const row1 = `
+    <div class="card-row1">
+      <span class="card-ship">${esc(s.ship || "Unknown Ship")}</span>
+      ${offerCode ? `<span class="card-offer-code">${esc(offerCode)}</span>` : ""}
+      <div class="card-badges">
+        ${s.stateroomCategory ? `<span class="badge" style="border-color:var(--border);color:var(--muted)">${esc(s.stateroomCategory)}</span>` : ""}
+        ${urgencyBadge}
+        <button class="card-remind${reminderActive ? " active" : ""}" title="${reminderActive ? "Cancel reminder" : "Set a reminder"}">🔔 ${esc(reminderLabel)}</button>
+        <button class="card-fav${isFav ? " active" : ""}" data-id="${esc(s.rcSailingId)}" title="${isFav ? "Remove from favorites" : "Add to favorites"}">${isFav ? "★" : "☆"}</button>
+      </div>
+    </div>`;
+
+  // Row 2: date · nights · departs · region · itinerary
+  const parts2 = [
+    `<span class="card-date">${fmtShortDate(s.sailDate)}</span>`,
+    `<span class="card-nights">${s.nights}n</span>`,
+    s.departurePort ? `<span class="card-sep">·</span><span class="card-port">from ${esc(s.departurePort)}</span>` : "",
+    s.region ? `<span class="card-sep">·</span><span class="card-port">${esc(s.region)}</span>` : "",
+    s.itineraryName ? `<span class="card-sep">·</span><span class="card-itinerary">${esc(s.itineraryName)}</span>` : "",
+    s.priceAfterOffer != null ? `<span class="card-price">$${s.priceAfterOffer.toLocaleString()}${s.taxesFees != null ? ` <span class="card-price-taxes">+$${s.taxesFees} fees</span>` : ""}</span>` : "",
+  ].filter(Boolean).join("");
+  const row2 = `<div class="card-row2">${parts2}</div>`;
+
+  // Row 3: offer description · ports of call · book-by
+  const desc = s.offer?.description ? `<span class="card-offer-desc">${esc(s.offer.description)}</span>` : "";
+  const portChips = (s.portsOfCall || []).map((p) => `<span class="port-chip">${esc(p)}</span>`).join("");
+  const bookByStr = bookByDate
+    ? `<span class="card-book-by${daysLeft !== null && daysLeft <= 14 ? " urgent" : ""}">Book by ${fmtShortDate(bookByDate)}${daysLeft !== null ? ` · ${daysLeft > 0 ? daysLeft + "d left" : "expired"}` : ""}</span>`
+    : "";
+  const row3 = (desc || portChips || bookByStr) ? `<div class="card-row3">${desc}${portChips}${bookByStr}</div>` : "";
+
+  card.innerHTML = row1 + row2 + row3;
+  card.dataset.sailingId = s.rcSailingId;
+
+  attachReminderControls(card, s);
+
+  const favBtn = card.querySelector(".card-fav");
+  if (favBtn) {
+    favBtn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const id = s.rcSailingId;
+      const wasFav = favSet.has(id);
+      // Optimistic update
+      if (wasFav) favSet.delete(id);
+      else favSet.add(id);
+      favBtn.classList.toggle("active", !wasFav);
+      favBtn.textContent = wasFav ? "☆" : "★";
+      favBtn.title = wasFav ? "Add to favorites" : "Remove from favorites";
+      updateFavToggleLabel();
+      // If we're filtering by favOnly and we just unfavorited, re-render to drop it
+      if (filters.favOnly && wasFav) render();
+
+      try {
+        const resp = await chrome.runtime.sendMessage({ type: "FAV_TOGGLE", rcSailingId: id });
+        if (!resp?.ok) throw new Error(resp?.error || "Toggle failed");
+      } catch (err) {
+        // Revert on failure
+        if (wasFav) favSet.add(id);
+        else favSet.delete(id);
+        favBtn.classList.toggle("active", wasFav);
+        favBtn.textContent = wasFav ? "★" : "☆";
+        updateFavToggleLabel();
+        setStatus("Favorite update failed: " + err.message);
+      }
+    });
+  }
+
+  return card;
+}
+
+function updateFavToggleLabel() {
+  const btn = document.getElementById("fav-toggle");
+  if (!btn) return;
+  const n = favSet.size;
+  btn.textContent = n > 0 ? `★ Favorites (${n})` : "☆ Favorites";
+}
+
+// ── Reminders ──────────────────────────────────────────────────────────────
+function attachReminderControls(card, s) {
+  const btn = card.querySelector(".card-remind");
+  if (!btn) return;
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    closeOpenPopovers();
+    if (s.reminder) {
+      cancelReminder(card, s);
+    } else {
+      openReminderPopover(btn, card, s);
+    }
+  });
+}
+
+function closeOpenPopovers() {
+  document.querySelectorAll(".remind-popover").forEach((p) => p.remove());
+}
+
+function openReminderPopover(anchor, card, s) {
+  const pop = document.createElement("div");
+  pop.className = "remind-popover";
+
+  const bookByDate = s.offer?.bookByDate;
+  const bookBy = bookByDate ? new Date(bookByDate + "T09:00:00") : null;
+  const now = new Date();
+
+  const presets = [
+    { label: "7 days before book-by", days: 7 },
+    { label: "3 days before book-by", days: 3 },
+    { label: "1 day before book-by", days: 1 },
+  ];
+
+  for (const p of presets) {
+    const opt = document.createElement("button");
+    opt.className = "remind-option";
+    opt.textContent = p.label;
+    let fireAt = null;
+    let disabled = false;
+    if (!bookBy) {
+      disabled = true;
+      opt.title = "No book-by date for this sailing";
+    } else {
+      const t = new Date(bookBy);
+      t.setDate(t.getDate() - p.days);
+      t.setHours(9, 0, 0, 0);
+      if (t.getTime() <= now.getTime()) {
+        disabled = true;
+        opt.title = "Already passed";
+      }
+      fireAt = t.toISOString();
+    }
+    if (disabled) opt.classList.add("disabled");
+    else opt.addEventListener("click", () => saveReminder(card, s, fireAt, `${p.days}d`));
+    pop.appendChild(opt);
+  }
+
+  const customRow = document.createElement("div");
+  customRow.className = "remind-custom-row";
+  customRow.innerHTML = `
+    <label>Custom date:</label>
+    <input type="date" class="remind-custom-date" />
+    <button class="remind-custom-save">Set</button>
+  `;
+  pop.appendChild(customRow);
+
+  const dateInput = customRow.querySelector(".remind-custom-date");
+  const minDate = new Date(); minDate.setDate(minDate.getDate() + 1);
+  dateInput.min = minDate.toISOString().slice(0, 10);
+
+  const errEl = document.createElement("div");
+  errEl.className = "remind-error";
+  pop.appendChild(errEl);
+
+  customRow.querySelector(".remind-custom-save").addEventListener("click", () => {
+    const v = dateInput.value;
+    if (!v) { errEl.textContent = "Pick a date"; return; }
+    const fire = new Date(v + "T09:00:00");
+    if (fire.getTime() <= Date.now()) { errEl.textContent = "Date must be in the future"; return; }
+    saveReminder(card, s, fire.toISOString(), "custom");
+  });
+
+  document.body.appendChild(pop);
+  positionPopover(pop, anchor);
+
+  setTimeout(() => {
+    document.addEventListener("click", function onDocClick(ev) {
+      if (!pop.contains(ev.target)) {
+        pop.remove();
+        document.removeEventListener("click", onDocClick);
+      }
+    });
+  }, 0);
+}
+
+function positionPopover(pop, anchor) {
+  const r = anchor.getBoundingClientRect();
+  pop.style.position = "fixed";
+  pop.style.top = `${r.bottom + 6}px`;
+  pop.style.left = `${Math.max(8, Math.min(window.innerWidth - 240, r.left))}px`;
+  pop.style.zIndex = "1000";
+}
+
+async function saveReminder(card, s, fireAtIso, offset) {
+  closeOpenPopovers();
+  const snapshot = {
+    ship: s.ship,
+    sailDate: s.sailDate,
+    nights: s.nights,
+    itineraryName: s.itineraryName,
+    bookByDate: s.offer?.bookByDate || null,
+    offerTitle: s.offer?.title || null,
+  };
+  try {
+    const resp = await chrome.runtime.sendMessage({
+      type: "REMINDER_SET",
+      rcSailingId: s.rcSailingId,
+      fireAt: fireAtIso,
+      offset,
+      snapshot,
+    });
+    if (!resp?.ok) throw new Error(resp?.error || "Failed");
+    s.reminder = { rcSailingId: s.rcSailingId, fireAt: fireAtIso, offset, snapshot };
+    refreshReminderButton(card, s);
+  } catch (e) {
+    setStatus("Reminder failed: " + e.message);
+  }
+}
+
+async function cancelReminder(card, s) {
+  if (!s.reminder) return;
+  const wasReminder = s.reminder;
+  s.reminder = null;
+  refreshReminderButton(card, s);
+  try {
+    const resp = await chrome.runtime.sendMessage({ type: "REMINDER_CLEAR", rcSailingId: s.rcSailingId });
+    if (!resp?.ok) throw new Error(resp?.error || "Failed");
+  } catch (e) {
+    s.reminder = wasReminder;
+    refreshReminderButton(card, s);
+    setStatus("Cancel failed: " + e.message);
+  }
+}
+
+function refreshReminderButton(card, s) {
+  const btn = card.querySelector(".card-remind");
+  if (!btn) return;
+  const active = !!s.reminder;
+  btn.classList.toggle("active", active);
+  btn.title = active ? "Cancel reminder" : "Set a reminder";
+  btn.textContent = `🔔 ${active ? formatReminderShort(s.reminder.fireAt) : "Remind me"}`;
+}
+
+function formatReminderShort(fireAtIso) {
+  const fire = new Date(fireAtIso);
+  const diffMs = fire.getTime() - Date.now();
+  if (diffMs <= 0) return "due";
+  const days = Math.round(diffMs / 86400000);
+  if (days === 0) return "today";
+  if (days === 1) return "in 1d";
+  if (days < 30) return `in ${days}d`;
+  return fire.toLocaleDateString("default", { month: "short", day: "numeric" });
+}
+
+// ── Hash deep-link ─────────────────────────────────────────────────────────
+function focusSailingFromHash() {
+  const m = location.hash.match(/sailing=([^&]+)/);
+  if (!m) return;
+  const id = decodeURIComponent(m[1]);
+  setTimeout(() => {
+    const card = document.querySelector(`.sailing-card[data-sailing-id="${CSS.escape(id)}"]`);
+    if (card) {
+      card.scrollIntoView({ behavior: "smooth", block: "center" });
+      card.classList.add("pulse");
+      setTimeout(() => card.classList.remove("pulse"), 2000);
+    }
+  }, 100);
+}
+
+function renderCalendar(sailings) {
+  const el = document.getElementById("calendar-view");
+  if (!sailings.length) {
+    el.innerHTML = `<div class="empty-state"><h3>No sailings match</h3><p>Adjust your filters to see sailings on the calendar.</p></div>`;
+    return;
+  }
+
+  const byMonth = new Map();
+  for (const s of sailings) {
+    if (!s.sailDate) continue;
+    const ym = s.sailDate.slice(0, 7);
+    if (!byMonth.has(ym)) byMonth.set(ym, []);
+    byMonth.get(ym).push(s);
+  }
+
+  el.innerHTML = "";
+
+  const months = document.createElement("div");
+  months.className = "cal-months";
+
+  const panel = document.createElement("div");
+  panel.className = "cal-side-panel";
+  panel.innerHTML = `<div class="cal-side-empty">Click a highlighted day to see sailings</div>`;
+
+  const sorted = [...byMonth.entries()].sort(([a], [b]) => a.localeCompare(b));
+  for (const [ym, ms] of sorted) months.appendChild(buildMonth(ym, ms, panel));
+
+  el.appendChild(months);
+  el.appendChild(panel);
+}
+
+function buildMonth(ym, sailings, panel) {
+  const [year, month] = ym.split("-").map(Number);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const firstDow = new Date(year, month - 1, 1).getDay();
+
+  const byDay = new Map();
+  for (const s of sailings) {
+    const day = +s.sailDate.slice(8, 10);
+    if (!byDay.has(day)) byDay.set(day, []);
+    byDay.get(day).push(s);
+  }
+
+  const maxCount = Math.max(...[...byDay.values()].map((a) => a.length), 1);
+
+  const wrap = document.createElement("div");
+  wrap.className = "cal-month";
+  const monthName = new Date(year, month - 1, 1).toLocaleString("default", { month: "long", year: "numeric" });
+  wrap.innerHTML = `
+    <div class="cal-month-header">
+      <span class="cal-month-name">${monthName}</span>
+      <span class="cal-month-count">${sailings.length} sailing${sailings.length !== 1 ? "s" : ""}</span>
+    </div>
+    <div class="cal-grid">
+      ${["Su","Mo","Tu","We","Th","Fr","Sa"].map((d) => `<div class="cal-dow">${d}</div>`).join("")}
+    </div>`;
+
+  const grid = wrap.querySelector(".cal-grid");
+
+  for (let i = 0; i < firstDow; i++) {
+    const cell = document.createElement("div");
+    cell.className = "cal-day";
+    cell.style.border = "none";
+    grid.appendChild(cell);
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const cell = document.createElement("div");
+    cell.className = "cal-day";
+    const daySailings = byDay.get(d);
+    if (daySailings?.length) {
+      cell.classList.add("has-sailings");
+      const intensity = Math.round((daySailings.length / maxCount) * 100);
+      cell.style.background = `rgba(59,130,246,${0.15 + intensity * 0.006})`;
+      cell.style.borderColor = `rgba(59,130,246,${0.3 + intensity * 0.005})`;
+      cell.innerHTML = `<span class="cal-day-num">${d}</span><span class="cal-day-count" style="color:#93c5fd">${daySailings.length}</span>`;
+
+      cell.addEventListener("click", () => {
+        // Deactivate any previously active cell across all months
+        document.querySelectorAll(".cal-day-active").forEach((c) => c.classList.remove("cal-day-active"));
+        cell.classList.add("cal-day-active");
+
+        const dateStr = fmtShortDate(`${ym}-${String(d).padStart(2, "0")}`);
+        panel.innerHTML = `<div class="cal-detail-header">${dateStr} — ${daySailings.length} sailing${daySailings.length !== 1 ? "s" : ""}</div>`;
+        for (const s of daySailings) panel.appendChild(buildCard(s));
+      });
+    } else {
+      cell.innerHTML = `<span class="cal-day-num" style="color:#4b5563">${d}</span>`;
+    }
+    grid.appendChild(cell);
+  }
+
+  return wrap;
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function fmtDate(iso) {
+  if (!iso) return "";
+  try { return new Date(iso).toLocaleString(); } catch { return iso; }
+}
+
+function fmtShortDate(iso) {
+  if (!iso) return "";
+  try {
+    const [y, m, d] = iso.slice(0, 10).split("-");
+    return new Date(+y, +m - 1, +d).toLocaleDateString("default", { month: "short", day: "numeric", year: "numeric" });
+  } catch { return iso; }
+}
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function addDaysISO(n) {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+function daysUntil(iso) {
+  if (!iso) return null;
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const then = new Date(iso + "T00:00:00");
+  return Math.round((then - now) / 86400000);
+}
+
+function setStatus(msg) {
+  document.getElementById("sync-status").textContent = msg;
+}
+
+function restoreStateFromHash() {
+  // Simple: just restore sort from hash if present
+  try {
+    const h = location.hash.slice(1);
+    if (!h) return;
+    const p = new URLSearchParams(h);
+    if (p.get("sort")) { sortKey = p.get("sort"); document.getElementById("sort-select").value = sortKey; }
+    if (p.get("view")) { view = p.get("view"); }
+  } catch (_) {}
+}
+
+init();
