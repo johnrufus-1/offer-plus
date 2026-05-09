@@ -365,7 +365,12 @@ function buildCard(s) {
 
   const matchBadge = isMatch ? `<span class="badge badge-match">🔗 Match · ${s.matchProfileIds.length}</span>` : "";
 
-  // Card row 1: ship · profile dots · badges · reminder · star
+  const itinUrl = buildItineraryUrl(s);
+  const itinLink = itinUrl
+    ? `<a class="card-itin-link" href="${esc(itinUrl)}" target="_blank" rel="noopener" title="View itinerary + ports of call on royalcaribbean.com">View on RC ↗</a>`
+    : "";
+
+  // Card row 1: ship · profile dots · badges · view-on-rc · reminder · star
   const row1 = `
     <div class="card-row1">
       <span class="card-ship">${esc(s.ship || "Unknown Ship")}</span>
@@ -373,20 +378,19 @@ function buildCard(s) {
       <div class="card-badges">
         ${matchBadge}
         ${urgencyBadge}
+        ${itinLink}
         <button class="card-remind${reminderActive ? " active" : ""}" title="${reminderActive ? "Cancel reminder" : "Set a reminder"}">🔔 ${esc(reminderLabel)}</button>
         <button class="card-fav${isFav ? " active" : ""}" data-id="${esc(s.rcSailingId)}" title="${isFav ? "Remove from favorites" : "Add to favorites"}">${isFav ? "★" : "☆"}</button>
       </div>
     </div>`;
 
   // Row 2: canonical sailing info (date, nights, departure port, region, itinerary)
-  const itinUrl = buildItineraryUrl(s);
   const parts2 = [
     `<span class="card-date">${fmtShortDate(s.sailDate)}</span>`,
     `<span class="card-nights">${s.nights}n</span>`,
     s.departurePort ? `<span class="card-sep">·</span><span class="card-port">from ${esc(s.departurePort)}</span>` : "",
     s.region ? `<span class="card-sep">·</span><span class="card-port">${esc(s.region)}</span>` : "",
     s.itineraryName ? `<span class="card-sep">·</span><span class="card-itinerary">${esc(s.itineraryName)}</span>` : "",
-    itinUrl ? `<a class="card-itin-link" href="${esc(itinUrl)}" target="_blank" rel="noopener" title="View itinerary + ports of call on royalcaribbean.com">View on RC ↗</a>` : "",
   ].filter(Boolean).join("");
   const row2 = `<div class="card-row2">${parts2}</div>`;
 
