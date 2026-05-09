@@ -13,7 +13,6 @@ let filters = {
   ships: new Set(),
   regions: new Set(),
   departurePorts: new Set(),
-  portsOfCall: new Set(),
   rooms: new Set(),
   minNights: 0,
   sailFrom: "",
@@ -100,12 +99,12 @@ function bindControls() {
       const map = {
         ships: "ship-chips", regions: "region-chips", rooms: "room-chips",
         profiles: "profile-chips",
-        departurePorts: "departure-chips", portsOfCall: "port-chips",
+        departurePorts: "departure-chips",
       };
       const key = {
         ships: "ships", regions: "regions", rooms: "rooms",
         profiles: "profileIds",
-        departurePorts: "departurePorts", portsOfCall: "portsOfCall",
+        departurePorts: "departurePorts",
       }[target];
       const container = document.getElementById(map[target]);
       if (!container || !key) return;
@@ -146,7 +145,7 @@ function resetFilters() {
     search: "",
     profileIds: new Set(),
     ships: new Set(), regions: new Set(),
-    departurePorts: new Set(), portsOfCall: new Set(),
+    departurePorts: new Set(),
     rooms: new Set(),
     minNights: 0, sailFrom: "", sailTo: "",
     favOnly: false, matchOnly: false,
@@ -190,13 +189,6 @@ function populateFacets() {
   const regions = [...new Set(allSailings.map((s) => s.region).filter(Boolean))].sort();
   const departurePorts = [...new Set(allSailings.map((s) => s.departurePort).filter(Boolean))].sort();
 
-  // Ports of call: union of all stops across sailings
-  const portsSet = new Set();
-  for (const s of allSailings) {
-    for (const p of (s.portsOfCall || [])) if (p) portsSet.add(p);
-  }
-  const ports = [...portsSet].sort();
-
   // Room types come from any profile's offering for a sailing
   const roomSet = new Set();
   for (const s of allSailings) {
@@ -210,7 +202,6 @@ function populateFacets() {
   renderChips("ship-chips", ships, "ships");
   renderChips("region-chips", regions, "regions");
   renderChips("departure-chips", departurePorts, "departurePorts");
-  renderChips("port-chips", ports, "portsOfCall");
   renderChips("room-chips", rooms, "rooms");
   renderProfileChips();
 
@@ -284,11 +275,6 @@ function applyFilters() {
     if (filters.ships.size && !filters.ships.has(s.ship)) return false;
     if (filters.regions.size && !filters.regions.has(s.region)) return false;
     if (filters.departurePorts.size && !filters.departurePorts.has(s.departurePort)) return false;
-    if (filters.portsOfCall.size) {
-      const stops = s.portsOfCall || [];
-      const hit = stops.some((p) => filters.portsOfCall.has(p));
-      if (!hit) return false;
-    }
 
     // Room filter checks any profile's stateroom for this sailing
     if (filters.rooms.size) {
@@ -393,12 +379,14 @@ function buildCard(s) {
     </div>`;
 
   // Row 2: canonical sailing info (date, nights, departure port, region, itinerary)
+  const itinUrl = buildItineraryUrl(s);
   const parts2 = [
     `<span class="card-date">${fmtShortDate(s.sailDate)}</span>`,
     `<span class="card-nights">${s.nights}n</span>`,
     s.departurePort ? `<span class="card-sep">·</span><span class="card-port">from ${esc(s.departurePort)}</span>` : "",
     s.region ? `<span class="card-sep">·</span><span class="card-port">${esc(s.region)}</span>` : "",
     s.itineraryName ? `<span class="card-sep">·</span><span class="card-itinerary">${esc(s.itineraryName)}</span>` : "",
+    itinUrl ? `<a class="card-itin-link" href="${esc(itinUrl)}" target="_blank" rel="noopener" title="View itinerary + ports of call on royalcaribbean.com">View on RC ↗</a>` : "",
   ].filter(Boolean).join("");
   const row2 = `<div class="card-row2">${parts2}</div>`;
 
@@ -991,6 +979,32 @@ function fmtShortDate(iso) {
     const [y, m, d] = iso.slice(0, 10).split("-");
     return new Date(+y, +m - 1, +d).toLocaleDateString("default", { month: "short", day: "numeric", year: "numeric" });
   } catch { return iso; }
+}
+
+// Construct a Royal Caribbean itinerary deep-link URL.
+// Pattern: /itinerary/{nights}-night-{region}-{itinerary}-from-{port}-on-{ship}-{itineraryCode}?sailDate=...
+// We don't have packageCode/groupId from the casino API but the URL still
+// resolves on RC's site with just sailDate + slug + country.
+function buildItineraryUrl(s) {
+  if (!s?.itineraryCode || !s?.sailDate) return null;
+  const slugify = (v) => String(v || "")
+    .toLowerCase()
+    .replace(/'/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  // RC ship URLs use the friendly first word ("Wonder of the Seas" → "wonder")
+  const shipShort = (s.ship || "").split(" ")[0];
+  const parts = [
+    `${s.nights}-night`,
+    slugify(s.region),
+    slugify(s.itineraryName),
+    "from", slugify(s.departurePort),
+    "on", slugify(shipShort),
+    s.itineraryCode,
+  ].filter(Boolean);
+  const slug = parts.join("-").replace(/-+/g, "-");
+  return `https://www.royalcaribbean.com/itinerary/${slug}?sailDate=${encodeURIComponent(s.sailDate)}&country=USA`;
 }
 
 function todayISO() {

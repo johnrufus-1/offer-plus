@@ -308,15 +308,20 @@ export async function getAllData() {
 
     let agg = byRcSailingId.get(s.rcSailingId);
     if (!agg) {
+      let raw = null;
+      try { raw = s.rawJson ? JSON.parse(s.rawJson) : null; } catch (_) {}
       agg = {
         rcSailingId: s.rcSailingId,
         ship: s.ship,
+        shipCode: raw?.shipCode || null,
         sailDate: s.sailDate,
         returnDate: s.returnDate,
         nights: s.nights,
         itineraryName: s.itineraryName,
+        itineraryCode: raw?.itineraryCode || null,
         region: s.region,
         departurePort: s.departurePort,
+        departurePortCode: raw?.departurePort?.code || null,
         portsOfCall: s.portsOfCall ? JSON.parse(s.portsOfCall) : [],
         profiles: {},
         matchProfileIds: [],
