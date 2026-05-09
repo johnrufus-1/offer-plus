@@ -1,14 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "Club Royale Finder",
+  "name": "Offer+",
   "version": "0.1.0",
-  "description": "Search and filter your Royal Caribbean Club Royale casino offers — sync once, browse anytime.",
+  "description": "Search, filter, and compare your Royal Caribbean Club Royale casino offers across multiple players.",
   "permissions": ["storage", "activeTab", "scripting", "alarms", "notifications"],
   "host_permissions": [
     "https://www.royalcaribbean.com/*"
   ],
   "action": {
-    "default_title": "Club Royale Finder",
+    "default_title": "Offer+",
     "default_popup": "popup.html"
   },
   "background": {

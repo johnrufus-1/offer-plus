@@ -1,4 +1,4 @@
-// dashboard.js — Club Royale Finder full-tab dashboard
+// dashboard.js — Offer+ full-tab dashboard
 
 // ── State ──────────────────────────────────────────────────────────────────
 let allSailings = [];           // aggregated by rcSailingId (post disabled-offer filter)
