@@ -172,6 +172,17 @@ html, body { background: var(--bg); color: var(--text); font-family: ui-sans-ser
 .profile-row-mgr-meta { font-size: 11px; color: var(--muted); grid-column: 1; }
 .profile-row-mgr-actions { grid-row: 1 / span 2; display: flex; gap: 6px; align-items: center; }
 .profile-row-mgr-actions button[disabled] { opacity: .4; cursor: not-allowed; }
+.profile-row-mgr-offers { grid-column: 1 / -1; margin-top: 4px; }
+.offers-toggle { background: none; border: none; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; padding: 2px 0; transition: color .15s; }
+.offers-toggle:hover { color: var(--text); }
+.offers-list { margin-top: 6px; padding-left: 14px; display: flex; flex-direction: column; gap: 4px; }
+.offers-empty { color: var(--muted); font-size: 12px; padding: 4px 0; }
+.offer-row { display: flex; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 6px; background: var(--panel2); border: 1px solid var(--border); cursor: pointer; transition: border-color .15s; }
+.offer-row:hover { border-color: var(--accent); }
+.offer-row.disabled { opacity: .55; }
+.offer-row input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; }
+.offer-row-title { flex: 1; font-size: 12px; }
+.offer-row-meta { font-size: 11px; color: var(--muted); white-space: nowrap; }
 
 /* ── Calendar ── */
 #calendar-view { display: grid; grid-template-columns: 1fr 340px; gap: 20px; align-items: start; }

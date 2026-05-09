@@ -1,53 +1,63 @@
 // IndexedDB helpers — ES module used by background.js and dashboard.js
 
 const DB_NAME = "crfDB";
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 function openDB() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = (e) => {
       const db = e.target.result;
+      const oldVersion = e.oldVersion;
 
-      // Wipe-and-resync: any old offers/sailings stores get recreated with
-      // compound keys (`[profileId, rcOfferId]` / `[profileId, rcSailingId]`).
-      if (db.objectStoreNames.contains("offers")) db.deleteObjectStore("offers");
-      if (db.objectStoreNames.contains("sailings")) db.deleteObjectStore("sailings");
+      // v4: wipe + recreate offers/sailings with compound keys.
+      // For fresh installs (oldVersion=0) this also runs and creates them.
+      if (oldVersion < 4) {
+        if (db.objectStoreNames.contains("offers")) db.deleteObjectStore("offers");
+        if (db.objectStoreNames.contains("sailings")) db.deleteObjectStore("sailings");
 
-      const offerStore = db.createObjectStore("offers", { keyPath: ["profileId", "rcOfferId"] });
-      offerStore.createIndex("profileId", "profileId");
-      offerStore.createIndex("rcOfferId", "rcOfferId");
+        const offerStore = db.createObjectStore("offers", { keyPath: ["profileId", "rcOfferId"] });
+        offerStore.createIndex("profileId", "profileId");
+        offerStore.createIndex("rcOfferId", "rcOfferId");
 
-      const sailingStore = db.createObjectStore("sailings", { keyPath: ["profileId", "rcSailingId"] });
-      sailingStore.createIndex("profileId", "profileId");
-      sailingStore.createIndex("rcSailingId", "rcSailingId");
-      sailingStore.createIndex("sailDate", "sailDate");
-      sailingStore.createIndex("ship", "ship");
-      sailingStore.createIndex("region", "region");
-      sailingStore.createIndex("nights", "nights");
-      sailingStore.createIndex("offerId", "offerId");
+        const sailingStore = db.createObjectStore("sailings", { keyPath: ["profileId", "rcSailingId"] });
+        sailingStore.createIndex("profileId", "profileId");
+        sailingStore.createIndex("rcSailingId", "rcSailingId");
+        sailingStore.createIndex("sailDate", "sailDate");
+        sailingStore.createIndex("ship", "ship");
+        sailingStore.createIndex("region", "region");
+        sailingStore.createIndex("nights", "nights");
+        sailingStore.createIndex("offerId", "offerId");
 
-      if (!db.objectStoreNames.contains("favorites")) {
-        db.createObjectStore("favorites", { keyPath: "rcSailingId" });
+        if (!db.objectStoreNames.contains("favorites")) {
+          db.createObjectStore("favorites", { keyPath: "rcSailingId" });
+        }
+        if (!db.objectStoreNames.contains("reminders")) {
+          const r = db.createObjectStore("reminders", { keyPath: "rcSailingId" });
+          r.createIndex("fireAt", "fireAt");
+        }
+        if (!db.objectStoreNames.contains("profiles")) {
+          const p = db.createObjectStore("profiles", { keyPath: "profileId" });
+          p.createIndex("loyaltyId", "loyaltyId");
+          p.put({
+            profileId: "me",
+            name: "Me",
+            loyaltyId: null,
+            source: "live",
+            unnamed: false,
+            addedAt: new Date().toISOString(),
+            lastSyncAt: null,
+          });
+        }
       }
-      if (!db.objectStoreNames.contains("reminders")) {
-        const r = db.createObjectStore("reminders", { keyPath: "rcSailingId" });
-        r.createIndex("fireAt", "fireAt");
-      }
-      if (!db.objectStoreNames.contains("profiles")) {
-        const p = db.createObjectStore("profiles", { keyPath: "profileId" });
-        p.createIndex("loyaltyId", "loyaltyId");
-        // Bootstrap a placeholder "Me" profile. The first sync rebinds it
-        // to the captured loyaltyId.
-        p.put({
-          profileId: "me",
-          name: "Me",
-          loyaltyId: null,
-          source: "live",
-          unnamed: false,
-          addedAt: new Date().toISOString(),
-          lastSyncAt: null,
-        });
+
+      // v5: per-profile disabled offers (excludes Annual Tier etc. from
+      // both display and match calculation).
+      if (oldVersion < 5) {
+        if (!db.objectStoreNames.contains("disabledOffers")) {
+          // keyPath `id` is `${profileId}|${rcOfferId}`
+          db.createObjectStore("disabledOffers", { keyPath: "id" });
+        }
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -223,27 +233,45 @@ export async function upsertOffers(payload, profileId) {
 }
 
 // Returns aggregated rows: one entry per unique rcSailingId, with per-profile
-// offer data nested under .profiles[profileId]. Also returns the profiles list
-// and a summary count of offers/matches.
+// offer data nested under .profiles[profileId]. Also returns the profiles list,
+// the raw offers list (each enriched with sailingCount + disabled flag), and
+// a summary count of offers/matches.
+//
+// Offers in `disabledOffers` are excluded from sailing aggregation: their
+// per-profile entries don't appear on cards and don't count toward matches.
+// Sailings whose only offers are disabled disappear entirely.
 export async function getAllData() {
   const db = await openDB();
-  const [profiles, offers, sailings, favIds, reminders] = await Promise.all([
+  const [profiles, offers, sailings, favIds, reminders, disabledKeys] = await Promise.all([
     storeGetAll(db, "profiles"),
     storeGetAll(db, "offers"),
     storeGetAll(db, "sailings"),
     getFavoriteIds(),
     storeGetAll(db, "reminders"),
+    getDisabledOfferKeys(),
   ]);
 
-  const offerKey = (profileId, rcOfferId) => `${profileId}::${rcOfferId}`;
+  const offerKey = (profileId, rcOfferId) => `${profileId}|${rcOfferId}`;
   const offerMap = new Map(offers.map((o) => [offerKey(o.profileId, o.rcOfferId), o]));
+  const disabledSet = new Set(disabledKeys);
   const favSet = new Set(favIds);
   const reminderMap = new Map(reminders.map((r) => [r.rcSailingId, r]));
 
-  // Group sailings by rcSailingId, merging per-profile entries.
+  // Pre-compute per-offer sailing counts (raw, before disabled filtering)
+  const offerSailingCounts = new Map();
+  for (const s of sailings) {
+    const k = offerKey(s.profileId, s.offerId);
+    offerSailingCounts.set(k, (offerSailingCounts.get(k) || 0) + 1);
+  }
+
+  // Group sailings by rcSailingId, merging per-profile entries — skipping
+  // any sailing whose owning offer is disabled.
   const byRcSailingId = new Map();
   for (const s of sailings) {
-    const profileOffer = offerMap.get(offerKey(s.profileId, s.offerId)) || null;
+    const k = offerKey(s.profileId, s.offerId);
+    if (disabledSet.has(k)) continue;
+
+    const profileOffer = offerMap.get(k) || null;
     const profileEntry = {
       profileId: s.profileId,
       offerId: s.offerId,
@@ -276,8 +304,16 @@ export async function getAllData() {
     if (!agg.matchProfileIds.includes(s.profileId)) agg.matchProfileIds.push(s.profileId);
   }
 
+  // Enrich offers with their sailing count + disabled flag for the manager UI
+  const enrichedOffers = offers.map((o) => ({
+    ...o,
+    sailingCount: offerSailingCounts.get(offerKey(o.profileId, o.rcOfferId)) || 0,
+    disabled: disabledSet.has(offerKey(o.profileId, o.rcOfferId)),
+  }));
+
   return {
     profiles,
+    offers: enrichedOffers,
     sailings: [...byRcSailingId.values()],
     counts: {
       profiles: profiles.length,
@@ -286,6 +322,38 @@ export async function getAllData() {
       matches: [...byRcSailingId.values()].filter((s) => s.matchProfileIds.length > 1).length,
     },
   };
+}
+
+// ── Disabled offers ────────────────────────────────────────────────────────
+export async function getDisabledOfferKeys() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction("disabledOffers", "readonly").objectStore("disabledOffers").getAllKeys();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function toggleOfferDisabled(profileId, rcOfferId) {
+  const id = `${profileId}|${rcOfferId}`;
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("disabledOffers", "readwrite");
+    const store = tx.objectStore("disabledOffers");
+    const getReq = store.get(id);
+    let willBeDisabled;
+    getReq.onsuccess = () => {
+      if (getReq.result) {
+        store.delete(id);
+        willBeDisabled = false;
+      } else {
+        store.put({ id, profileId, rcOfferId, disabledAt: new Date().toISOString() });
+        willBeDisabled = true;
+      }
+    };
+    tx.oncomplete = () => resolve(willBeDisabled);
+    tx.onerror = () => reject(tx.error);
+  });
 }
 
 // ── Favorites ──────────────────────────────────────────────────────────────

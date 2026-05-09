@@ -4,6 +4,7 @@ import {
   setReminder, clearReminder, getAllReminders,
   ensureProfile, listProfiles, renameProfile, deleteProfile,
   exportProfileJson, importProfileJson,
+  toggleOfferDisabled,
 } from "./db.js";
 
 const ALARM_PREFIX = "reminder-";
@@ -220,6 +221,16 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         try {
           const result = await importProfileJson(msg.json);
           sendResponse({ ok: true, ...result });
+        } catch (e) {
+          sendResponse({ ok: false, error: String(e) });
+        }
+        break;
+      }
+
+      case "OFFER_TOGGLE_DISABLED": {
+        try {
+          const disabled = await toggleOfferDisabled(msg.profileId, msg.rcOfferId);
+          sendResponse({ ok: true, disabled });
         } catch (e) {
           sendResponse({ ok: false, error: String(e) });
         }

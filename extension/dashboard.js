@@ -1,10 +1,12 @@
 // dashboard.js — Club Royale Finder full-tab dashboard
 
 // ── State ──────────────────────────────────────────────────────────────────
-let allSailings = [];           // aggregated by rcSailingId
+let allSailings = [];           // aggregated by rcSailingId (post disabled-offer filter)
 let profiles = [];              // [{ profileId, name, ... }]
+let allOffers = [];             // raw offers, enriched with sailingCount + disabled
 let counts = { profiles: 0, uniqueSailings: 0, totalOfferSailings: 0, matches: 0 };
 let favSet = new Set();
+let openOfferLists = new Set(); // remembered between modal renders
 let filters = {
   search: "",
   profileIds: new Set(),        // empty = all profiles
@@ -34,6 +36,7 @@ async function loadData() {
     if (!resp?.ok) { setStatus("Error loading data"); return; }
     allSailings = resp.data.sailings;
     profiles = resp.data.profiles || [];
+    allOffers = resp.data.offers || [];
     counts = resp.data.counts || counts;
     favSet = new Set(allSailings.filter((s) => s.isFavorite).map((s) => s.rcSailingId));
     updateFavToggleLabel();
@@ -390,13 +393,12 @@ function buildCard(s) {
     const price = pdata.priceAfterOffer != null
       ? `<span class="profile-row-price">$${pdata.priceAfterOffer.toLocaleString()}${pdata.taxesFees != null ? ` <span class="card-price-taxes">+$${pdata.taxesFees}</span>` : ""}</span>`
       : "";
-    const compType = pdata.offer?.compType ? `<span class="profile-row-comp">${esc(pdata.offer.compType)}</span>` : "";
     return `
       <div class="profile-row">
         <span class="profile-row-name" style="color:${profileColor(pid)}">
           <span class="profile-dot" style="background:${profileColor(pid)}"></span>${esc(name)}
         </span>
-        ${compType}${desc}${room}${price}${bbStr}
+        ${desc}${room}${price}${bbStr}
       </div>`;
   }).join("");
 
@@ -509,9 +511,13 @@ function renderProfilesModal() {
     return;
   }
   for (const p of profiles) {
-    const offerCount = countOffersForProfile(p.profileId);
+    const profileOffers = allOffers.filter((o) => o.profileId === p.profileId);
+    const offerCount = profileOffers.length;
     const sailingCount = countSailingsForProfile(p.profileId);
+    const disabledCount = profileOffers.filter((o) => o.disabled).length;
     const lastSync = p.lastSyncAt ? new Date(p.lastSyncAt).toLocaleString() : "Never";
+    const expanded = openOfferLists.has(p.profileId);
+
     const row = document.createElement("div");
     row.className = "profile-row-mgr";
     row.innerHTML = `
@@ -521,14 +527,20 @@ function renderProfilesModal() {
         <span class="profile-source-badge">${p.source === "imported" ? "imported" : "live"}</span>
       </div>
       <div class="profile-row-mgr-meta">
-        ${offerCount} offer${offerCount !== 1 ? "s" : ""} · ${sailingCount} sailing${sailingCount !== 1 ? "s" : ""} · last sync: ${lastSync}
+        ${offerCount} offer${offerCount !== 1 ? "s" : ""} · ${sailingCount} sailing${sailingCount !== 1 ? "s" : ""}${disabledCount ? ` · ${disabledCount} excluded` : ""} · last sync: ${lastSync}
       </div>
       <div class="profile-row-mgr-actions">
         <button class="btn-secondary profile-action-export" data-id="${esc(p.profileId)}">Export</button>
         <button class="btn-secondary profile-action-delete" data-id="${esc(p.profileId)}" ${p.profileId === "me" ? "disabled" : ""}>Delete</button>
       </div>
+      <div class="profile-row-mgr-offers">
+        <button class="offers-toggle" data-id="${esc(p.profileId)}">${expanded ? "▾" : "▸"} ${offerCount} offer${offerCount !== 1 ? "s" : ""}</button>
+        <div class="offers-list" data-id="${esc(p.profileId)}" style="display:${expanded ? "" : "none"}"></div>
+      </div>
     `;
     body.appendChild(row);
+
+    if (expanded) renderOffersList(row.querySelector(".offers-list"), p.profileId, profileOffers);
   }
 
   body.querySelectorAll(".profile-name-edit").forEach((input) => {
@@ -559,14 +571,56 @@ function renderProfilesModal() {
       else setStatus("Delete failed: " + (resp?.error || ""));
     });
   });
+  body.querySelectorAll(".offers-toggle").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.id;
+      if (openOfferLists.has(id)) openOfferLists.delete(id);
+      else openOfferLists.add(id);
+      renderProfilesModal();
+    });
+  });
 }
 
-function countOffersForProfile(profileId) {
-  const set = new Set();
-  for (const s of allSailings) {
-    if (s.profiles?.[profileId]?.offerId) set.add(s.profiles[profileId].offerId);
+function renderOffersList(container, profileId, offers) {
+  container.innerHTML = "";
+  if (!offers.length) {
+    container.innerHTML = `<div class="offers-empty">No offers yet for this profile.</div>`;
+    return;
   }
-  return set.size;
+  // Sort: enabled first, then by sailingCount desc, then by title
+  const sorted = [...offers].sort((a, b) => {
+    if (a.disabled !== b.disabled) return a.disabled ? 1 : -1;
+    if (b.sailingCount !== a.sailingCount) return b.sailingCount - a.sailingCount;
+    return (a.title || "").localeCompare(b.title || "");
+  });
+  for (const o of sorted) {
+    const row = document.createElement("label");
+    row.className = "offer-row";
+    if (o.disabled) row.classList.add("disabled");
+    row.innerHTML = `
+      <input type="checkbox" ${o.disabled ? "" : "checked"} />
+      <span class="offer-row-title">${esc(o.title || o.rcOfferId)}</span>
+      <span class="offer-row-meta">${o.sailingCount} sailing${o.sailingCount !== 1 ? "s" : ""}${o.disabled ? " · excluded" : ""}</span>
+    `;
+    const checkbox = row.querySelector("input");
+    checkbox.addEventListener("change", async () => {
+      checkbox.disabled = true;
+      const resp = await chrome.runtime.sendMessage({
+        type: "OFFER_TOGGLE_DISABLED",
+        profileId,
+        rcOfferId: o.rcOfferId,
+      });
+      if (!resp?.ok) {
+        checkbox.checked = !checkbox.checked;
+        checkbox.disabled = false;
+        setStatus("Toggle failed: " + (resp?.error || ""));
+        return;
+      }
+      await loadData();
+      renderProfilesModal();
+    });
+    container.appendChild(row);
+  }
 }
 
 function countSailingsForProfile(profileId) {
