@@ -266,10 +266,14 @@ function applyFilters() {
     if (filters.favOnly && !favSet.has(s.rcSailingId)) return false;
     if (filters.matchOnly && (s.matchProfileIds || []).length < 2) return false;
 
-    // Profile filter — sailing passes if any selected profile has it
+    // Profile filter — sailing passes only if EVERY selected profile has an
+    // offer for it (AND semantics). This is the Companion Match use case:
+    // "show me what all of us can book together."
     if (filters.profileIds.size) {
-      const hasOne = s.matchProfileIds.some((pid) => filters.profileIds.has(pid));
-      if (!hasOne) return false;
+      const sailingProfiles = new Set(s.matchProfileIds || []);
+      for (const pid of filters.profileIds) {
+        if (!sailingProfiles.has(pid)) return false;
+      }
     }
 
     if (filters.ships.size && !filters.ships.has(s.ship)) return false;
