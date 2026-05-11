@@ -5,16 +5,14 @@
 (function () {
   'use strict';
 
+  const PWA_URL    = 'https://johnrufus-1.github.io/offer-plus/';
+  const SETUP_KEY  = 'offerPlusMobileSetupSeen';
+
   // ── Protocol constants ───────────────────────────────────────────────────
-  // Each data frame encodes CHUNK_BYTES of compressed payload as base32.
-  // Base32 gives 8/5 = 1.6 chars per byte → 900 bytes → 1440 chars + 19-char header = ~1459 chars.
-  // QR alphanumeric mode V14 L holds ~1914 chars — fits comfortably, gives a ~73-module QR.
   const CHUNK_BYTES = 900;
   const FPS         = 8;
-  const FRAME_MS    = Math.round(1000 / FPS); // 125ms
-
-  // RFC 4648 base32 — all chars are in QR alphanumeric charset (A-Z, 2-7)
-  const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const FRAME_MS    = Math.round(1000 / FPS);
+  const B32         = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
   // ── Encoding helpers ─────────────────────────────────────────────────────
   function toBase32(bytes) {
@@ -28,7 +26,6 @@
     return out;
   }
 
-  // CRC-16/CCITT-FALSE — detects corrupt frames without breaking the stream
   function crc16(str) {
     let crc = 0xFFFF;
     for (let i = 0; i < str.length; i++) {
@@ -48,26 +45,24 @@
   function hex8(n) { return ((n >>> 0) & 0xFFFFFFFF).toString(16).padStart(8, '0').toUpperCase(); }
 
   // ── QR renderer ─────────────────────────────────────────────────────────
-  function renderQR(canvas, text) {
+  // ecLevel: 'L' for dense data frames, 'M' for the static install URL
+  // mode: 'Alphanumeric' for OP1 frames, omit for auto (byte mode for URLs)
+  function renderQR(canvas, text, { ecLevel = 'L', mode = null, sizePx = 480 } = {}) {
     const dpr = window.devicePixelRatio || 1;
-    const SIZE = 480; // logical CSS pixels
-    if (canvas.style.width !== SIZE + 'px') {
-      canvas.style.width  = SIZE + 'px';
-      canvas.style.height = SIZE + 'px';
-      canvas.width  = SIZE * dpr;
-      canvas.height = SIZE * dpr;
-    }
+    canvas.style.width  = sizePx + 'px';
+    canvas.style.height = sizePx + 'px';
+    canvas.width  = sizePx * dpr;
+    canvas.height = sizePx * dpr;
 
-    // qrcode-generator: typeNumber 0 = auto, 'L' = lowest error correction
-    // (L maximises data capacity per QR version — we rely on CRC for integrity)
-    const qr = qrcode(0, 'L');
-    qr.addData(text, 'Alphanumeric');
+    const qr = qrcode(0, ecLevel);
+    if (mode) qr.addData(text, mode);
+    else       qr.addData(text);
     qr.make();
 
-    const n       = qr.getModuleCount();
-    const cellPx  = Math.floor((SIZE * dpr) / (n + 8)); // 4-module quiet zone each side
-    const offsetX = Math.floor((SIZE * dpr - cellPx * n) / 2);
-    const offsetY = Math.floor((SIZE * dpr - cellPx * n) / 2);
+    const n      = qr.getModuleCount();
+    const cellPx = Math.floor((sizePx * dpr) / (n + 8));
+    const offX   = Math.floor((sizePx * dpr - cellPx * n) / 2);
+    const offY   = Math.floor((sizePx * dpr - cellPx * n) / 2);
 
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = '#ffffff';
@@ -75,7 +70,7 @@
     ctx.fillStyle = '#000000';
     for (let r = 0; r < n; r++) {
       for (let c = 0; c < n; c++) {
-        if (qr.isDark(r, c)) ctx.fillRect(offsetX + c * cellPx, offsetY + r * cellPx, cellPx, cellPx);
+        if (qr.isDark(r, c)) ctx.fillRect(offX + c * cellPx, offY + r * cellPx, cellPx, cellPx);
       }
     }
   }
@@ -84,15 +79,52 @@
   let _timer      = null;
   let _frameIndex = 0;
 
-  // ── Public API ───────────────────────────────────────────────────────────
-  async function startMobileSync(data) {
-    const modal  = document.getElementById('sync-mobile-modal');
+  // ── Step 1 — Install onboarding ──────────────────────────────────────────
+  function showSetupStep(data) {
+    const modal = document.getElementById('sync-mobile-modal');
+    document.getElementById('sync-modal-title').textContent = 'Get Offer+ on Your Phone';
+    document.getElementById('sync-modal-body').innerHTML = `
+      <p class="sync-modal-hint">Scan to open the Offer+ app on your phone, then add it to your home screen. You only need to do this once.</p>
+      <canvas id="sync-setup-canvas" class="sync-setup-canvas"></canvas>
+      <div class="sync-setup-url">${PWA_URL.replace('https://', '')}</div>
+      <ol class="sync-setup-steps">
+        <li>Scan the QR code with your phone camera</li>
+        <li>Tap <strong>Share → Add to Home Screen</strong> (iOS) or <strong>Install app</strong> (Android)</li>
+        <li>Come back here and click <strong>Ready →</strong></li>
+      </ol>
+      <div class="sync-setup-actions">
+        <button class="sync-skip-btn" id="sync-skip-setup">Already installed</button>
+        <button class="sync-ready-btn" id="sync-ready-setup">Ready →</button>
+      </div>`;
+
+    modal.style.display = 'flex';
+
+    // Render static install QR — use M error correction for better scan reliability
+    const canvas = document.getElementById('sync-setup-canvas');
+    renderQR(canvas, PWA_URL, { ecLevel: 'M', sizePx: 280 });
+
+    const proceed = () => {
+      localStorage.setItem(SETUP_KEY, '1');
+      showSyncStep(data);
+    };
+    document.getElementById('sync-skip-setup').addEventListener('click', proceed);
+    document.getElementById('sync-ready-setup').addEventListener('click', proceed);
+  }
+
+  // ── Step 2 — Animated QR sync ────────────────────────────────────────────
+  async function showSyncStep(data) {
+    document.getElementById('sync-modal-title').textContent = 'Sync to Mobile';
+    document.getElementById('sync-modal-body').innerHTML = `
+      <p class="sync-modal-hint">Point your phone at this screen. The QR cycles automatically — keep it visible until the progress bar fills on your phone.</p>
+      <canvas id="sync-mobile-canvas"></canvas>
+      <div class="sync-progress-wrap">
+        <div class="sync-progress-bar" id="sync-mobile-progress"></div>
+      </div>
+      <div class="sync-modal-label" id="sync-mobile-label">Compressing data…</div>`;
+
     const canvas = document.getElementById('sync-mobile-canvas');
     const label  = document.getElementById('sync-mobile-label');
     const prog   = document.getElementById('sync-mobile-progress');
-
-    label.textContent = 'Compressing data…';
-    modal.style.display = 'flex';
 
     // Compress
     const jsonStr    = JSON.stringify({
@@ -110,16 +142,14 @@
       chunks.push(compressed.slice(i, i + CHUNK_BYTES));
     }
     const dataFrameCount = chunks.length;
-    const totalFrames    = dataFrameCount + 1; // +1 for manifest (index 0)
+    const totalFrames    = dataFrameCount + 1;
 
-    // Build manifest frame (index 0)
-    // Format: OP1:{TTTT}:0000:{CRC}:{SIZE8}:{SHA256_64}:{FRAMES8}
+    // Manifest frame
     const mBody  = hex8(compressed.length) + ':' + sha256.toUpperCase() + ':' + hex8(dataFrameCount);
     const mCrc   = hex4(crc16(mBody));
     const manifestFrame = 'OP1:' + hex4(totalFrames) + ':0000:' + mCrc + ':' + mBody;
 
-    // Build data frames (index 1..N)
-    // Format: OP1:{TTTT}:{IIII}:{CRC}:{BASE32}
+    // Data frames
     const dataFrames = chunks.map((chunk, i) => {
       const body = toBase32(chunk);
       return 'OP1:' + hex4(totalFrames) + ':' + hex4(i + 1) + ':' + hex4(crc16(body)) + ':' + body;
@@ -134,12 +164,10 @@
       'sha256=' + sha256.slice(0, 16) + '…'
     );
 
-    // Cycle frames
     _frameIndex = 0;
     function tick() {
-      const frame = allFrames[_frameIndex];
-      renderQR(canvas, frame);
-
+      if (!document.getElementById('sync-mobile-canvas')) { stopMobileSync(); return; }
+      renderQR(canvas, allFrames[_frameIndex], { ecLevel: 'L', mode: 'Alphanumeric' });
       if (_frameIndex === 0) {
         label.textContent = 'Manifest · ' + dataFrameCount + ' data frames · ' +
           (compressed.length / 1024).toFixed(1) + 'KB';
@@ -147,11 +175,22 @@
         label.textContent = 'Frame ' + _frameIndex + ' of ' + dataFrameCount;
       }
       prog.style.width = ((_frameIndex / (allFrames.length - 1)) * 100).toFixed(1) + '%';
-
       _frameIndex = (_frameIndex + 1) % allFrames.length;
     }
     tick();
     _timer = setInterval(tick, FRAME_MS);
+  }
+
+  // ── Public API ───────────────────────────────────────────────────────────
+  async function startMobileSync(data) {
+    const modal = document.getElementById('sync-mobile-modal');
+    modal.style.display = 'flex';
+
+    if (!localStorage.getItem(SETUP_KEY)) {
+      showSetupStep(data);
+    } else {
+      showSyncStep(data);
+    }
   }
 
   function stopMobileSync() {

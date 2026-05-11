@@ -305,3 +305,55 @@ html, body { background: var(--bg); color: var(--text); font-family: ui-sans-ser
   white-space: nowrap;
 }
 #sync-mobile-btn:hover { background: rgba(59,130,246,.2); }
+
+/* ── Sync modal — setup step ── */
+.sync-setup-canvas {
+  border-radius: 10px;
+  display: block;
+  background: #fff;
+}
+.sync-setup-url {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: ui-monospace, monospace;
+  letter-spacing: .02em;
+}
+.sync-setup-steps {
+  text-align: left;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.7;
+  padding-left: 18px;
+  max-width: 380px;
+  width: 100%;
+}
+.sync-setup-steps strong { color: var(--text); }
+.sync-setup-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 4px;
+}
+.sync-skip-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 8px 16px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.sync-skip-btn:hover { border-color: var(--muted); color: var(--text); }
+.sync-ready-btn {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 20px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.sync-ready-btn:hover { background: #2563eb; }
