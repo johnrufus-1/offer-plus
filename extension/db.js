@@ -1,7 +1,7 @@
 // IndexedDB helpers — ES module used by background.js and dashboard.js
 
 const DB_NAME = "crfDB";
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -80,6 +80,17 @@ function openDB() {
         sailingStore.createIndex("ship", "ship");
         sailingStore.createIndex("region", "region");
         sailingStore.createIndex("nights", "nights");
+      }
+
+      // v7: replace per-sailing reminders with per-sailing bookings.
+      // Bookings store sailings the user has actually booked, plus a free-form
+      // notes field (confirmation #, room #, etc.) and an .ics / Google
+      // Calendar export from the dashboard.
+      if (oldVersion < 7) {
+        if (db.objectStoreNames.contains("reminders")) db.deleteObjectStore("reminders");
+        if (!db.objectStoreNames.contains("bookings")) {
+          db.createObjectStore("bookings", { keyPath: "rcSailingId" });
+        }
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -264,12 +275,12 @@ export async function upsertOffers(payload, profileId) {
 // Sailings whose only offers are disabled disappear entirely.
 export async function getAllData() {
   const db = await openDB();
-  const [profiles, offers, sailings, favIds, reminders, disabledKeys] = await Promise.all([
+  const [profiles, offers, sailings, favIds, bookings, disabledKeys] = await Promise.all([
     storeGetAll(db, "profiles"),
     storeGetAll(db, "offers"),
     storeGetAll(db, "sailings"),
     getFavoriteIds(),
-    storeGetAll(db, "reminders"),
+    storeGetAll(db, "bookings"),
     getDisabledOfferKeys(),
   ]);
 
@@ -277,7 +288,7 @@ export async function getAllData() {
   const offerMap = new Map(offers.map((o) => [offerKey(o.profileId, o.rcOfferId), o]));
   const disabledSet = new Set(disabledKeys);
   const favSet = new Set(favIds);
-  const reminderMap = new Map(reminders.map((r) => [r.rcSailingId, r]));
+  const bookingMap = new Map(bookings.map((b) => [b.rcSailingId, b]));
 
   // Pre-compute per-offer sailing counts (raw, before disabled filtering)
   const offerSailingCounts = new Map();
@@ -326,7 +337,7 @@ export async function getAllData() {
         profiles: {},
         matchProfileIds: [],
         isFavorite: favSet.has(s.rcSailingId),
-        reminder: reminderMap.get(s.rcSailingId) || null,
+        booking: bookingMap.get(s.rcSailingId) || null,
       };
       byRcSailingId.set(s.rcSailingId, agg);
     }
@@ -419,37 +430,60 @@ export async function getFavoriteIds() {
   });
 }
 
-// ── Reminders ──────────────────────────────────────────────────────────────
-export async function setReminder(rcSailingId, fireAt, offset, snapshot) {
+// ── Bookings ───────────────────────────────────────────────────────────────
+export async function toggleBooking(rcSailingId) {
   const db = await openDB();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction("reminders", "readwrite");
-    tx.objectStore("reminders").put({
-      rcSailingId,
-      fireAt,
-      offset,
-      snapshot,
-      createdAt: new Date().toISOString(),
-    });
+    const tx = db.transaction("bookings", "readwrite");
+    const store = tx.objectStore("bookings");
+    const getReq = store.get(rcSailingId);
+    let willBeBooked;
+    getReq.onsuccess = () => {
+      if (getReq.result) {
+        store.delete(rcSailingId);
+        willBeBooked = false;
+      } else {
+        store.put({ rcSailingId, bookedAt: new Date().toISOString(), notes: "" });
+        willBeBooked = true;
+      }
+    };
+    tx.oncomplete = () => resolve(willBeBooked);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function updateBookingNotes(rcSailingId, notes) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("bookings", "readwrite");
+    const store = tx.objectStore("bookings");
+    const getReq = store.get(rcSailingId);
+    getReq.onsuccess = () => {
+      const existing = getReq.result;
+      if (!existing) {
+        // Not booked — silently no-op rather than creating a booking via notes
+        return;
+      }
+      store.put({ ...existing, notes: notes || "" });
+    };
     tx.oncomplete = () => resolve(true);
     tx.onerror = () => reject(tx.error);
   });
 }
 
-export async function clearReminder(rcSailingId) {
+export async function getBookingIds() {
   const db = await openDB();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction("reminders", "readwrite");
-    tx.objectStore("reminders").delete(rcSailingId);
-    tx.oncomplete = () => resolve(true);
-    tx.onerror = () => reject(tx.error);
+    const req = db.transaction("bookings", "readonly").objectStore("bookings").getAllKeys();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
   });
 }
 
-export async function getAllReminders() {
+export async function getAllBookings() {
   const db = await openDB();
   return new Promise((resolve, reject) => {
-    const req = db.transaction("reminders", "readonly").objectStore("reminders").getAll();
+    const req = db.transaction("bookings", "readonly").objectStore("bookings").getAll();
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });

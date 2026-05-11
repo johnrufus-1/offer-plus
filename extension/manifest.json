@@ -3,7 +3,7 @@
   "name": "Offer+",
   "version": "0.1.0",
   "description": "Search, filter, and compare your Royal Caribbean Club Royale casino offers across multiple players.",
-  "permissions": ["storage", "activeTab", "scripting", "alarms", "notifications"],
+  "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": [
     "https://www.royalcaribbean.com/*"
   ],

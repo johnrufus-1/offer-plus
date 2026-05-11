@@ -1,93 +1,25 @@
 import {
   upsertOffers, getAllData, getLastSync,
   toggleFavorite,
-  setReminder, clearReminder, getAllReminders,
+  toggleBooking, updateBookingNotes,
   ensureProfile, listProfiles, renameProfile, deleteProfile,
   exportProfileJson, importProfileJson,
   toggleOfferDisabled,
 } from "./db.js";
 
-const ALARM_PREFIX = "reminder-";
-
 chrome.runtime.onInstalled.addListener(async () => {
   await chrome.storage.local.set({ recording: false, recordedCalls: [], lastSync: null });
-  await rescheduleAllAlarms();
-});
-
-chrome.runtime.onStartup.addListener(async () => {
-  await rescheduleAllAlarms();
-});
-
-async function rescheduleAllAlarms() {
+  // Clean up any leftover reminder-* alarms from the previous version. Wrapped
+  // in try/catch because chrome.alarms is gone once the permission is dropped
+  // from the manifest — this is best-effort.
   try {
-    const reminders = await getAllReminders();
-    const existing = await chrome.alarms.getAll();
-    const wanted = new Set(reminders.map((r) => ALARM_PREFIX + r.rcSailingId));
-    // Clear stale alarms
-    for (const a of existing) {
-      if (a.name.startsWith(ALARM_PREFIX) && !wanted.has(a.name)) {
-        chrome.alarms.clear(a.name);
+    if (chrome.alarms) {
+      const alarms = await chrome.alarms.getAll();
+      for (const a of alarms) {
+        if (a.name.startsWith("reminder-")) chrome.alarms.clear(a.name);
       }
     }
-    // (Re)create alarms for current reminders
-    const now = Date.now();
-    for (const r of reminders) {
-      const when = Date.parse(r.fireAt);
-      if (Number.isFinite(when) && when > now) {
-        chrome.alarms.create(ALARM_PREFIX + r.rcSailingId, { when });
-      } else {
-        // Past-due: fire immediately and clean up
-        await fireReminder(r);
-      }
-    }
-  } catch (e) {
-    console.error("[CRF] rescheduleAllAlarms failed:", e);
-  }
-}
-
-async function fireReminder(reminder) {
-  const s = reminder.snapshot || {};
-  const ship = s.ship || "Sailing";
-  const sailDate = s.sailDate ? formatShortDate(s.sailDate) : "";
-  const bookByDate = s.bookByDate ? formatShortDate(s.bookByDate) : "";
-  const titleDate = bookByDate || "soon";
-  // Tiny 1x1 blue PNG so notifications don't reject for missing iconUrl.
-  // Replace with chrome.runtime.getURL("icon128.png") if you add a real icon.
-  const iconUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQI12NggIQwAAAOAAFCNbARAAAAAElFTkSuQmCC";
-  chrome.notifications.create(`crf-reminder-${reminder.rcSailingId}`, {
-    type: "basic",
-    iconUrl,
-    title: `Book by ${titleDate} — ${ship}`,
-    message: [s.itineraryName, s.nights ? `${s.nights}n` : "", sailDate ? `sails ${sailDate}` : ""].filter(Boolean).join(" · ") || "Reminder",
-    requireInteraction: true,
-  }, () => {
-    if (chrome.runtime.lastError) console.warn("[CRF] notification:", chrome.runtime.lastError.message);
-  });
-  await clearReminder(reminder.rcSailingId);
-  chrome.alarms.clear(ALARM_PREFIX + reminder.rcSailingId);
-}
-
-function formatShortDate(iso) {
-  try {
-    const [y, m, d] = iso.slice(0, 10).split("-");
-    return new Date(+y, +m - 1, +d).toLocaleDateString("default", { month: "short", day: "numeric", year: "numeric" });
-  } catch { return iso; }
-}
-
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (!alarm.name.startsWith(ALARM_PREFIX)) return;
-  const rcSailingId = alarm.name.slice(ALARM_PREFIX.length);
-  const reminders = await getAllReminders();
-  const reminder = reminders.find((r) => r.rcSailingId === rcSailingId);
-  if (reminder) await fireReminder(reminder);
-});
-
-chrome.notifications.onClicked.addListener((notificationId) => {
-  if (!notificationId.startsWith("crf-reminder-")) return;
-  const rcSailingId = notificationId.slice("crf-reminder-".length);
-  const url = chrome.runtime.getURL(`dashboard.html#sailing=${encodeURIComponent(rcSailingId)}`);
-  chrome.tabs.create({ url });
-  chrome.notifications.clear(notificationId);
+  } catch (_) {}
 });
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
@@ -145,27 +77,19 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         break;
       }
 
-      case "REMINDER_SET": {
+      case "BOOKING_TOGGLE": {
         try {
-          const { rcSailingId, fireAt, offset, snapshot } = msg;
-          const when = Date.parse(fireAt);
-          if (!Number.isFinite(when) || when <= Date.now()) {
-            sendResponse({ ok: false, error: "Reminder time must be in the future" });
-            break;
-          }
-          await setReminder(rcSailingId, fireAt, offset, snapshot);
-          chrome.alarms.create(ALARM_PREFIX + rcSailingId, { when });
-          sendResponse({ ok: true });
+          const booked = await toggleBooking(msg.rcSailingId);
+          sendResponse({ ok: true, booked });
         } catch (e) {
           sendResponse({ ok: false, error: String(e) });
         }
         break;
       }
 
-      case "REMINDER_CLEAR": {
+      case "BOOKING_UPDATE_NOTES": {
         try {
-          await clearReminder(msg.rcSailingId);
-          await chrome.alarms.clear(ALARM_PREFIX + msg.rcSailingId);
+          await updateBookingNotes(msg.rcSailingId, msg.notes || "");
           sendResponse({ ok: true });
         } catch (e) {
           sendResponse({ ok: false, error: String(e) });

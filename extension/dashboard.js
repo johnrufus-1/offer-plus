@@ -6,6 +6,7 @@ let profiles = [];              // [{ profileId, name, ... }]
 let allOffers = [];             // raw offers, enriched with sailingCount + disabled
 let counts = { profiles: 0, uniqueSailings: 0, totalOfferSailings: 0, matches: 0 };
 let favSet = new Set();
+let bookedSet = new Set();
 let openOfferLists = new Set(); // remembered between modal renders
 let filters = {
   search: "",
@@ -18,6 +19,7 @@ let filters = {
   sailFrom: "",
   sailTo: "",
   favOnly: false,
+  bookedOnly: false,
   matchOnly: false,
 };
 let sortKey = "sailDate";
@@ -40,7 +42,9 @@ async function loadData() {
     allOffers = resp.data.offers || [];
     counts = resp.data.counts || counts;
     favSet = new Set(allSailings.filter((s) => s.isFavorite).map((s) => s.rcSailingId));
+    bookedSet = new Set(allSailings.filter((s) => s.booking).map((s) => s.rcSailingId));
     updateFavToggleLabel();
+    updateBookedToggleLabel();
     updateMatchToggleLabel();
     populateFacets();
     renderNamingBanner();
@@ -120,6 +124,11 @@ function bindControls() {
     document.getElementById("fav-toggle").classList.toggle("active", filters.favOnly);
     render();
   });
+  document.getElementById("booked-toggle").addEventListener("click", () => {
+    filters.bookedOnly = !filters.bookedOnly;
+    document.getElementById("booked-toggle").classList.toggle("active", filters.bookedOnly);
+    render();
+  });
   document.getElementById("match-toggle").addEventListener("click", () => {
     filters.matchOnly = !filters.matchOnly;
     document.getElementById("match-toggle").classList.toggle("active", filters.matchOnly);
@@ -129,6 +138,7 @@ function bindControls() {
   document.getElementById("profiles-modal-close").addEventListener("click", closeProfilesModal);
   document.querySelector("#profiles-modal .modal-backdrop").addEventListener("click", closeProfilesModal);
   document.getElementById("import-file").addEventListener("change", handleImportFile);
+  document.getElementById("export-bookings-btn").addEventListener("click", exportAllBookings);
   document.querySelectorAll("#view-toggle button").forEach((btn) => {
     btn.addEventListener("click", () => {
       view = btn.dataset.view;
@@ -148,7 +158,7 @@ function resetFilters() {
     departurePorts: new Set(),
     rooms: new Set(),
     minNights: 0, sailFrom: "", sailTo: "",
-    favOnly: false, matchOnly: false,
+    favOnly: false, bookedOnly: false, matchOnly: false,
   };
   document.getElementById("search").value = "";
   document.getElementById("nights-range").value = 0;
@@ -160,6 +170,7 @@ function resetFilters() {
   if (anyChip) anyChip.classList.add("active");
   document.getElementById("sail-custom-inputs").style.display = "none";
   document.getElementById("fav-toggle").classList.remove("active");
+  document.getElementById("booked-toggle").classList.remove("active");
   document.getElementById("match-toggle").classList.remove("active");
   render();
 }
@@ -264,6 +275,7 @@ function applyFilters() {
   const q = filters.search.toLowerCase();
   return allSailings.filter((s) => {
     if (filters.favOnly && !favSet.has(s.rcSailingId)) return false;
+    if (filters.bookedOnly && !bookedSet.has(s.rcSailingId)) return false;
     if (filters.matchOnly && (s.matchProfileIds || []).length < 2) return false;
 
     // Profile filter — sailing passes only if EVERY selected profile has an
@@ -333,7 +345,6 @@ function render() {
   document.getElementById("result-count").textContent = summary;
   if (view === "list") renderList(sorted);
   else renderCalendar(sorted);
-  focusSailingFromHash();
 }
 
 function renderList(sailings) {
@@ -357,8 +368,7 @@ function buildCard(s) {
     : "";
 
   const isFav = favSet.has(s.rcSailingId);
-  const reminderLabel = s.reminder ? formatReminderShort(s.reminder.fireAt) : "Remind me";
-  const reminderActive = !!s.reminder;
+  const isBooked = bookedSet.has(s.rcSailingId);
   const isMatch = (s.matchProfileIds || []).length > 1;
 
   // Profile dots in the header
@@ -386,7 +396,7 @@ function buildCard(s) {
   )];
   const offerCodeTags = offerCodes.map((c) => `<span class="card-offer-code">${esc(c)}</span>`).join("");
 
-  // Card row 1: ship · offer codes · profile dots · badges · view-on-rc · reminder · star
+  // Card row 1: ship · offer codes · profile dots · badges · view-on-rc · booked · star
   const row1 = `
     <div class="card-row1">
       <span class="card-ship">${esc(s.ship || "Unknown Ship")}</span>
@@ -397,7 +407,7 @@ function buildCard(s) {
         ${roomBadges}
         ${urgencyBadge}
         ${itinLink}
-        <button class="card-remind${reminderActive ? " active" : ""}" title="${reminderActive ? "Cancel reminder" : "Set a reminder"}">🔔 ${esc(reminderLabel)}</button>
+        <button class="card-booked${isBooked ? " active" : ""}" title="${isBooked ? "Unmark as booked" : "Mark as booked"}">${isBooked ? "✓ Booked" : "✓ Book"}</button>
         <button class="card-fav${isFav ? " active" : ""}" data-id="${esc(s.rcSailingId)}" title="${isFav ? "Remove from favorites" : "Add to favorites"}">${isFav ? "★" : "☆"}</button>
       </div>
     </div>`;
@@ -440,12 +450,108 @@ function buildCard(s) {
       </div>`;
   }).join("");
 
-  card.innerHTML = row1 + row2 + row3 + profileRows;
+  // Booking detail panel — only shown when this sailing is booked. Contains
+  // Add-to-Google-Calendar + .ics download buttons, plus a notes textarea.
+  const bookingDetail = isBooked ? buildBookingDetailHtml(s) : "";
+
+  card.innerHTML = row1 + row2 + row3 + profileRows + bookingDetail;
   card.dataset.sailingId = s.rcSailingId;
 
-  attachReminderControls(card, s);
+  attachBookedControl(card, s);
   attachFavControl(card, s);
+  if (isBooked) attachBookingDetailControls(card, s);
   return card;
+}
+
+function buildBookingDetailHtml(s) {
+  const notes = s.booking?.notes || "";
+  const gcalUrl = buildGoogleCalendarUrl(s);
+  return `
+    <div class="booking-detail">
+      <div class="booking-cal-row">
+        <a class="cal-btn cal-btn-google" href="${esc(gcalUrl)}" target="_blank" rel="noopener" title="Add to Google Calendar">📅 Google Calendar</a>
+        <button class="cal-btn cal-btn-ics" title="Download .ics file (works with Apple Calendar, Outlook, etc.)">↓ Download .ics</button>
+      </div>
+      <textarea class="booking-notes" placeholder="Confirmation #, room #, dining time, notes…" rows="2">${esc(notes)}</textarea>
+    </div>`;
+}
+
+function attachBookedControl(card, s) {
+  const btn = card.querySelector(".card-booked");
+  if (!btn) return;
+  btn.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    const id = s.rcSailingId;
+    const wasBooked = bookedSet.has(id);
+
+    // Optimistic toggle
+    if (wasBooked) bookedSet.delete(id);
+    else bookedSet.add(id);
+    s.booking = wasBooked ? null : { rcSailingId: id, bookedAt: new Date().toISOString(), notes: "" };
+    updateBookedToggleLabel();
+
+    // Rebuild this single card in place
+    const replacement = buildCard(s);
+    card.replaceWith(replacement);
+
+    try {
+      const resp = await chrome.runtime.sendMessage({ type: "BOOKING_TOGGLE", rcSailingId: id });
+      if (!resp?.ok) throw new Error(resp?.error || "Toggle failed");
+    } catch (err) {
+      // Revert
+      if (wasBooked) bookedSet.add(id);
+      else bookedSet.delete(id);
+      s.booking = wasBooked ? { rcSailingId: id, bookedAt: new Date().toISOString(), notes: "" } : null;
+      updateBookedToggleLabel();
+      const reverted = buildCard(s);
+      replacement.replaceWith(reverted);
+      setStatus("Booking update failed: " + err.message);
+    }
+  });
+}
+
+function attachBookingDetailControls(card, s) {
+  // .ics download
+  const icsBtn = card.querySelector(".cal-btn-ics");
+  if (icsBtn) {
+    icsBtn.addEventListener("click", () => {
+      const blob = buildIcsBlob([s]);
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${(s.ship || "cruise").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-${s.sailDate}.ics`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    });
+  }
+
+  // Notes textarea — debounced save
+  const notes = card.querySelector(".booking-notes");
+  if (notes) {
+    let timer = null;
+    notes.addEventListener("input", () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(async () => {
+        try {
+          const resp = await chrome.runtime.sendMessage({
+            type: "BOOKING_UPDATE_NOTES",
+            rcSailingId: s.rcSailingId,
+            notes: notes.value,
+          });
+          if (!resp?.ok) throw new Error(resp?.error || "Save failed");
+          if (s.booking) s.booking.notes = notes.value;
+        } catch (err) {
+          setStatus("Notes save failed: " + err.message);
+        }
+      }, 500);
+    });
+  }
+}
+
+function updateBookedToggleLabel() {
+  const btn = document.getElementById("booked-toggle");
+  if (!btn) return;
+  const n = bookedSet.size;
+  btn.textContent = n > 0 ? `✓ Booked (${n})` : "✓ Booked";
 }
 
 function attachFavControl(card, s) {
@@ -706,6 +812,21 @@ async function handleImportFile(e) {
   }
 }
 
+function exportAllBookings() {
+  const bookedSailings = allSailings.filter((s) => bookedSet.has(s.rcSailingId));
+  if (!bookedSailings.length) {
+    setModalStatus("No bookings yet — mark a sailing as booked first.", "info");
+    return;
+  }
+  const blob = buildIcsBlob(bookedSailings);
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `offer-plus-bookings-${new Date().toISOString().slice(0, 10)}.ics`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  setModalStatus(`✓ Exported ${bookedSailings.length} booking${bookedSailings.length !== 1 ? "s" : ""} as .ics`, "ok");
+}
+
 function setModalStatus(msg, kind) {
   const el = document.getElementById("modal-status");
   if (!el) return;
@@ -713,182 +834,85 @@ function setModalStatus(msg, kind) {
   el.className = "modal-status" + (kind ? " " + kind : "");
 }
 
-// ── Reminders ──────────────────────────────────────────────────────────────
-function attachReminderControls(card, s) {
-  const btn = card.querySelector(".card-remind");
-  if (!btn) return;
-  btn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    closeOpenPopovers();
-    if (s.reminder) {
-      cancelReminder(card, s);
-    } else {
-      openReminderPopover(btn, card, s);
-    }
+// ── Calendar export (ICS + Google Calendar) ────────────────────────────────
+// All-day multi-day events: end date is EXCLUSIVE in both Google Calendar
+// and the iCalendar spec, so we always add +1 day to the return date.
+
+function buildGoogleCalendarUrl(s) {
+  const startDate = (s.sailDate || "").replace(/-/g, "");
+  const endIso = isoAddDays(s.returnDate || isoAddDays(s.sailDate, s.nights || 0), 1);
+  const endDate = endIso.replace(/-/g, "");
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: buildEventTitle(s),
+    dates: `${startDate}/${endDate}`,
+    location: s.departurePort || "",
+    details: buildEventDescription(s),
   });
+  return `https://calendar.google.com/calendar/render?${params}`;
 }
 
-function closeOpenPopovers() {
-  document.querySelectorAll(".remind-popover").forEach((p) => p.remove());
-}
-
-function openReminderPopover(anchor, card, s) {
-  const pop = document.createElement("div");
-  pop.className = "remind-popover";
-
-  const bookByDate = earliestBookBy(s);
-  const bookBy = bookByDate ? new Date(bookByDate + "T09:00:00") : null;
-  const now = new Date();
-
-  const presets = [
-    { label: "7 days before book-by", days: 7 },
-    { label: "3 days before book-by", days: 3 },
-    { label: "1 day before book-by", days: 1 },
-  ];
-
-  for (const p of presets) {
-    const opt = document.createElement("button");
-    opt.className = "remind-option";
-    opt.textContent = p.label;
-    let fireAt = null;
-    let disabled = false;
-    if (!bookBy) {
-      disabled = true;
-      opt.title = "No book-by date for this sailing";
-    } else {
-      const t = new Date(bookBy);
-      t.setDate(t.getDate() - p.days);
-      t.setHours(9, 0, 0, 0);
-      if (t.getTime() <= now.getTime()) {
-        disabled = true;
-        opt.title = "Already passed";
-      }
-      fireAt = t.toISOString();
-    }
-    if (disabled) opt.classList.add("disabled");
-    else opt.addEventListener("click", () => saveReminder(card, s, fireAt, `${p.days}d`));
-    pop.appendChild(opt);
+// Returns a Blob (text/calendar) containing a VCALENDAR with one VEVENT per
+// sailing — single .ics file works for both individual and bulk exports.
+function buildIcsBlob(sailings) {
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Offer+//Cruise Bookings//EN", "CALSCALE:GREGORIAN"];
+  for (const s of sailings) {
+    const startCompact = (s.sailDate || "").replace(/-/g, "");
+    const endIso = isoAddDays(s.returnDate || isoAddDays(s.sailDate, s.nights || 0), 1);
+    const endCompact = endIso.replace(/-/g, "");
+    const dtstamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+    lines.push("BEGIN:VEVENT");
+    lines.push(`UID:offer-plus-${s.rcSailingId}@offerplus.local`);
+    lines.push(`DTSTAMP:${dtstamp}`);
+    lines.push(`DTSTART;VALUE=DATE:${startCompact}`);
+    lines.push(`DTEND;VALUE=DATE:${endCompact}`);
+    lines.push(`SUMMARY:${icsEscape(buildEventTitle(s))}`);
+    if (s.departurePort) lines.push(`LOCATION:${icsEscape(s.departurePort)}`);
+    lines.push(`DESCRIPTION:${icsEscape(buildEventDescription(s))}`);
+    lines.push("END:VEVENT");
   }
+  lines.push("END:VCALENDAR");
+  return new Blob([lines.join("\r\n")], { type: "text/calendar" });
+}
 
-  const customRow = document.createElement("div");
-  customRow.className = "remind-custom-row";
-  customRow.innerHTML = `
-    <label>Custom date:</label>
-    <input type="date" class="remind-custom-date" />
-    <button class="remind-custom-save">Set</button>
-  `;
-  pop.appendChild(customRow);
+function buildEventTitle(s) {
+  return `🚢 ${s.ship || "Cruise"} — ${s.region || "Sailing"}`;
+}
 
-  const dateInput = customRow.querySelector(".remind-custom-date");
-  const minDate = new Date(); minDate.setDate(minDate.getDate() + 1);
-  dateInput.min = minDate.toISOString().slice(0, 10);
+function buildEventDescription(s) {
+  const lines = [];
+  if (s.itineraryName) lines.push(s.itineraryName);
+  if (s.nights) lines.push(`${s.nights} nights`);
+  if (s.departurePort) lines.push(`Departs from ${s.departurePort}`);
 
-  const errEl = document.createElement("div");
-  errEl.className = "remind-error";
-  pop.appendChild(errEl);
-
-  customRow.querySelector(".remind-custom-save").addEventListener("click", () => {
-    const v = dateInput.value;
-    if (!v) { errEl.textContent = "Pick a date"; return; }
-    const fire = new Date(v + "T09:00:00");
-    if (fire.getTime() <= Date.now()) { errEl.textContent = "Date must be in the future"; return; }
-    saveReminder(card, s, fire.toISOString(), "custom");
+  const profileLines = (s.matchProfileIds || []).map((pid) => {
+    const p = profileById(pid);
+    const pdata = s.profiles?.[pid] || {};
+    const bits = [p?.name || pid];
+    if (pdata.offerId) bits.push(`offer ${pdata.offerId}`);
+    if (pdata.stateroomCategory) bits.push(pdata.stateroomCategory);
+    return bits.join(" · ");
   });
+  if (profileLines.length) lines.push("", "Travelers:", ...profileLines);
 
-  document.body.appendChild(pop);
-  positionPopover(pop, anchor);
+  const itinUrl = buildItineraryUrl(s);
+  if (itinUrl) lines.push("", `RC itinerary: ${itinUrl}`);
 
-  setTimeout(() => {
-    document.addEventListener("click", function onDocClick(ev) {
-      if (!pop.contains(ev.target)) {
-        pop.remove();
-        document.removeEventListener("click", onDocClick);
-      }
-    });
-  }, 0);
+  if (s.booking?.notes) lines.push("", "Notes:", s.booking.notes);
+
+  return lines.join("\n");
 }
 
-function positionPopover(pop, anchor) {
-  const r = anchor.getBoundingClientRect();
-  pop.style.position = "fixed";
-  pop.style.top = `${r.bottom + 6}px`;
-  pop.style.left = `${Math.max(8, Math.min(window.innerWidth - 240, r.left))}px`;
-  pop.style.zIndex = "1000";
+function icsEscape(v) {
+  return String(v || "").replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;");
 }
 
-async function saveReminder(card, s, fireAtIso, offset) {
-  closeOpenPopovers();
-  const snapshot = {
-    ship: s.ship,
-    sailDate: s.sailDate,
-    nights: s.nights,
-    itineraryName: s.itineraryName,
-    bookByDate: earliestBookBy(s),
-  };
-  try {
-    const resp = await chrome.runtime.sendMessage({
-      type: "REMINDER_SET",
-      rcSailingId: s.rcSailingId,
-      fireAt: fireAtIso,
-      offset,
-      snapshot,
-    });
-    if (!resp?.ok) throw new Error(resp?.error || "Failed");
-    s.reminder = { rcSailingId: s.rcSailingId, fireAt: fireAtIso, offset, snapshot };
-    refreshReminderButton(card, s);
-  } catch (e) {
-    setStatus("Reminder failed: " + e.message);
-  }
-}
-
-async function cancelReminder(card, s) {
-  if (!s.reminder) return;
-  const wasReminder = s.reminder;
-  s.reminder = null;
-  refreshReminderButton(card, s);
-  try {
-    const resp = await chrome.runtime.sendMessage({ type: "REMINDER_CLEAR", rcSailingId: s.rcSailingId });
-    if (!resp?.ok) throw new Error(resp?.error || "Failed");
-  } catch (e) {
-    s.reminder = wasReminder;
-    refreshReminderButton(card, s);
-    setStatus("Cancel failed: " + e.message);
-  }
-}
-
-function refreshReminderButton(card, s) {
-  const btn = card.querySelector(".card-remind");
-  if (!btn) return;
-  const active = !!s.reminder;
-  btn.classList.toggle("active", active);
-  btn.title = active ? "Cancel reminder" : "Set a reminder";
-  btn.textContent = `🔔 ${active ? formatReminderShort(s.reminder.fireAt) : "Remind me"}`;
-}
-
-function formatReminderShort(fireAtIso) {
-  const fire = new Date(fireAtIso);
-  const diffMs = fire.getTime() - Date.now();
-  if (diffMs <= 0) return "due";
-  const days = Math.round(diffMs / 86400000);
-  if (days === 0) return "today";
-  if (days === 1) return "in 1d";
-  if (days < 30) return `in ${days}d`;
-  return fire.toLocaleDateString("default", { month: "short", day: "numeric" });
-}
-
-// ── Hash deep-link ─────────────────────────────────────────────────────────
-function focusSailingFromHash() {
-  const m = location.hash.match(/sailing=([^&]+)/);
-  if (!m) return;
-  const id = decodeURIComponent(m[1]);
-  setTimeout(() => {
-    const card = document.querySelector(`.sailing-card[data-sailing-id="${CSS.escape(id)}"]`);
-    if (card) {
-      card.scrollIntoView({ behavior: "smooth", block: "center" });
-      card.classList.add("pulse");
-      setTimeout(() => card.classList.remove("pulse"), 2000);
-    }
-  }, 100);
+function isoAddDays(iso, n) {
+  if (!iso) return "";
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + n);
+  return dt.toISOString().slice(0, 10);
 }
 
 // ── Calendar view ──────────────────────────────────────────────────────────
