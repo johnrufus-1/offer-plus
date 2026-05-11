@@ -101,7 +101,7 @@ function bindControls() {
     btn.addEventListener("click", () => {
       const target = btn.dataset.target;
       const map = {
-        ships: "ship-chips", regions: "region-chips", rooms: "room-chips",
+        ships: "ship-chips", regions: "region-chips", rooms: "rooms-section",
         profiles: "profile-chips",
         departurePorts: "departure-chips",
       };
@@ -200,24 +200,63 @@ function populateFacets() {
   const regions = [...new Set(allSailings.map((s) => s.region).filter(Boolean))].sort();
   const departurePorts = [...new Set(allSailings.map((s) => s.departurePort).filter(Boolean))].sort();
 
-  // Room types come from any profile's offering for a sailing
-  const roomSet = new Set();
-  for (const s of allSailings) {
-    for (const pid of Object.keys(s.profiles || {})) {
-      const r = s.profiles[pid].stateroomCategory;
-      if (r) roomSet.add(r);
-    }
-  }
-  const rooms = [...roomSet].sort();
-
   renderChips("ship-chips", ships, "ships");
   renderChips("region-chips", regions, "regions");
   renderChips("departure-chips", departurePorts, "departurePorts");
-  renderChips("room-chips", rooms, "rooms");
+  renderProfileRooms();
   renderProfileChips();
 
   const maxNights = Math.max(...allSailings.map((s) => s.nights || 0), 0);
   document.getElementById("nights-range").max = maxNights;
+}
+
+// Per-profile room filter — one chip group per profile that has any rooms.
+// `filters.rooms` is a Set of composite keys `"profileId|roomName"`.
+function renderProfileRooms() {
+  const container = document.getElementById("rooms-section");
+  if (!container) return;
+  container.innerHTML = "";
+
+  // Build profileId -> sorted rooms[] from synced data
+  const roomsByProfile = new Map();
+  for (const s of allSailings) {
+    for (const pid of Object.keys(s.profiles || {})) {
+      const r = s.profiles[pid].stateroomCategory;
+      if (!r) continue;
+      if (!roomsByProfile.has(pid)) roomsByProfile.set(pid, new Set());
+      roomsByProfile.get(pid).add(r);
+    }
+  }
+
+  // Order: profiles array order so it matches the rest of the UI
+  for (const profile of profiles) {
+    const set = roomsByProfile.get(profile.profileId);
+    if (!set || !set.size) continue;
+    const rooms = [...set].sort();
+    const group = document.createElement("div");
+    group.className = "rooms-profile-group";
+    const dot = `<span class="profile-dot" style="background:${profileColor(profile.profileId)}"></span>`;
+    const label = profiles.length > 1
+      ? `${dot}${esc(profile.name)}'s rooms`
+      : `${dot}Rooms`;
+    group.innerHTML = `<div class="rooms-profile-label">${label}</div><div class="chip-group" data-profile-id="${esc(profile.profileId)}"></div>`;
+    const chipsEl = group.querySelector(".chip-group");
+    for (const r of rooms) {
+      const key = `${profile.profileId}|${r}`;
+      const chip = document.createElement("button");
+      chip.className = "chip";
+      chip.textContent = r;
+      if (filters.rooms.has(key)) chip.classList.add("active");
+      chip.addEventListener("click", () => {
+        if (filters.rooms.has(key)) filters.rooms.delete(key);
+        else filters.rooms.add(key);
+        chip.classList.toggle("active", filters.rooms.has(key));
+        render();
+      });
+      chipsEl.appendChild(chip);
+    }
+    container.appendChild(group);
+  }
 }
 
 function renderChips(containerId, values, filterKey) {
@@ -292,11 +331,23 @@ function applyFilters() {
     if (filters.regions.size && !filters.regions.has(s.region)) return false;
     if (filters.departurePorts.size && !filters.departurePorts.has(s.departurePort)) return false;
 
-    // Room filter checks any profile's stateroom for this sailing
+    // Per-profile room filter: each entry is "profileId|roomName". Group by
+    // profile and require the sailing's matching profile entry's room to be
+    // in that profile's selected set. AND across profiles.
     if (filters.rooms.size) {
-      const profileRooms = Object.values(s.profiles || {}).map((p) => p.stateroomCategory).filter(Boolean);
-      const match = profileRooms.some((r) => filters.rooms.has(r));
-      if (!match) return false;
+      const allowedByProfile = new Map();
+      for (const entry of filters.rooms) {
+        const sep = entry.indexOf("|");
+        if (sep < 0) continue;
+        const pid = entry.slice(0, sep);
+        const room = entry.slice(sep + 1);
+        if (!allowedByProfile.has(pid)) allowedByProfile.set(pid, new Set());
+        allowedByProfile.get(pid).add(room);
+      }
+      for (const [pid, allowed] of allowedByProfile) {
+        const profileRoom = s.profiles?.[pid]?.stateroomCategory;
+        if (!profileRoom || !allowed.has(profileRoom)) return false;
+      }
     }
 
     if (filters.minNights > 0 && (s.nights || 0) < filters.minNights) return false;
@@ -384,11 +435,22 @@ function buildCard(s) {
     ? `<a class="card-itin-link" href="${esc(itinUrl)}" target="_blank" rel="noopener" title="View itinerary + ports of call on royalcaribbean.com">View on RC ↗</a>`
     : "";
 
-  // Unique stateroom categories across the profiles that have this sailing
-  const rooms = [...new Set(
-    (s.matchProfileIds || []).map((pid) => s.profiles?.[pid]?.stateroomCategory).filter(Boolean)
-  )];
-  const roomBadges = rooms.map((r) => `<span class="badge badge-room">${esc(r)}</span>`).join("");
+  // Per-room badge with profile color dot(s). Merge identical rooms across
+  // profiles into a single multi-dot badge so the card stays compact.
+  const roomToProfiles = new Map();
+  for (const pid of (s.matchProfileIds || [])) {
+    const r = s.profiles?.[pid]?.stateroomCategory;
+    if (!r) continue;
+    if (!roomToProfiles.has(r)) roomToProfiles.set(r, []);
+    roomToProfiles.get(r).push(pid);
+  }
+  const roomBadges = [...roomToProfiles.entries()].map(([room, pids]) => {
+    const dots = pids.map((pid) => {
+      const name = profileById(pid)?.name || pid;
+      return `<span class="profile-dot" style="background:${profileColor(pid)}" title="${esc(name)}"></span>`;
+    }).join("");
+    return `<span class="badge badge-room">${dots}${esc(room)}</span>`;
+  }).join("");
 
   // Unique offer codes across the profiles
   const offerCodes = [...new Set(
