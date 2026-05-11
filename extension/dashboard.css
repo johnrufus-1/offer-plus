@@ -32,8 +32,6 @@ html, body { background: var(--bg); color: var(--text); font-family: ui-sans-ser
 #view-toggle button { background: none; border: none; color: var(--muted); padding: 7px 14px; cursor: pointer; font: inherit; transition: all .15s; }
 #view-toggle button.active { background: var(--accent); color: #fff; }
 #sync-status { color: var(--muted); font-size: 12px; white-space: nowrap; margin-left: auto; }
-#sync-now-btn { background: var(--panel2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 7px 12px; cursor: pointer; font: inherit; white-space: nowrap; transition: border-color .15s; }
-#sync-now-btn:hover { border-color: var(--accent); }
 #fav-toggle { background: var(--panel2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 7px 12px; cursor: pointer; font: inherit; white-space: nowrap; transition: all .15s; }
 #fav-toggle:hover { border-color: #fbbf24; }
 #fav-toggle.active { background: rgba(251,191,36,.15); border-color: #fbbf24; color: #fbbf24; }

@@ -118,7 +118,6 @@ function bindControls() {
     });
   });
   document.getElementById("reset-btn").addEventListener("click", resetFilters);
-  document.getElementById("sync-now-btn").addEventListener("click", syncNow);
   document.getElementById("fav-toggle").addEventListener("click", () => {
     filters.favOnly = !filters.favOnly;
     document.getElementById("fav-toggle").classList.toggle("active", filters.favOnly);
@@ -175,23 +174,6 @@ function resetFilters() {
   render();
 }
 
-async function syncNow() {
-  const btn = document.getElementById("sync-now-btn");
-  btn.disabled = true;
-  setStatus("Triggering sync…");
-  try {
-    const resp = await chrome.runtime.sendMessage({ type: "TRIGGER_SYNC" });
-    if (resp?.ok) {
-      setStatus("Sync triggered — watch the RC page for progress");
-      setTimeout(loadData, 8000);
-    } else {
-      setStatus("Sync failed: " + (resp?.error || "unknown error"));
-    }
-  } catch (e) {
-    setStatus("Error: " + e.message);
-  }
-  btn.disabled = false;
-}
 
 // ── Facets ─────────────────────────────────────────────────────────────────
 function populateFacets() {
