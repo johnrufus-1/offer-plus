@@ -134,6 +134,29 @@ function bindControls() {
     render();
   });
   document.getElementById("profiles-btn").addEventListener("click", openProfilesModal);
+  document.getElementById("export-mobile-btn").addEventListener("click", async () => {
+    const btn = document.getElementById("export-mobile-btn");
+    btn.textContent = "⏳";
+    btn.disabled = true;
+    try {
+      const resp = await chrome.runtime.sendMessage({ type: "GET_EXPORT_DATA" });
+      if (!resp?.ok) throw new Error(resp?.error || "Export failed");
+      const html = generateMobileHtml(resp.data);
+      const blob = new Blob([html], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const a = Object.assign(document.createElement("a"), {
+        href: url,
+        download: "offer-plus-" + new Date().toISOString().slice(0, 10) + ".html",
+      });
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert("Export failed: " + e.message);
+    } finally {
+      btn.textContent = "📱";
+      btn.disabled = false;
+    }
+  });
   document.getElementById("profiles-modal-close").addEventListener("click", closeProfilesModal);
   document.querySelector("#profiles-modal .modal-backdrop").addEventListener("click", closeProfilesModal);
   document.getElementById("import-file").addEventListener("change", handleImportFile);

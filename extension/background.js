@@ -4,7 +4,7 @@ import {
   toggleBooking, updateBookingNotes,
   ensureProfile, listProfiles, renameProfile, deleteProfile,
   exportProfileJson, importProfileJson,
-  toggleOfferDisabled,
+  toggleOfferDisabled, getAllBookings,
 } from "./db.js";
 
 chrome.runtime.onInstalled.addListener(async () => {
@@ -56,6 +56,17 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           sendResponse({ ok: true, data });
         } catch (e) {
           console.error("[CRF background] GET_ALL error:", e);
+          sendResponse({ ok: false, error: String(e) });
+        }
+        break;
+      }
+
+      case "GET_EXPORT_DATA": {
+        try {
+          const [allData, bookings] = await Promise.all([getAllData(), getAllBookings()]);
+          sendResponse({ ok: true, data: { ...allData, bookings } });
+        } catch (e) {
+          console.error("[CRF background] GET_EXPORT_DATA error:", e);
           sendResponse({ ok: false, error: String(e) });
         }
         break;
