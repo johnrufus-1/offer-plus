@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Offer+</title>
+  <meta name="description" content="Royal Caribbean Club Royale offers, on your phone" />
+  <meta name="theme-color" content="#13161b" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Offer+" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/icon.svg" />
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <button id="filterToggle" class="icon-btn" aria-label="Filters">&#9776;</button>
+  <span class="logo">&#9824; Offer+</span>
+  <input id="search" type="search" placeholder="Search ships, ports…" autocomplete="off" />
+  <select id="sortSelect">
+    <option value="sailDate">Date &#8593;</option>
+    <option value="sailDate-desc">Date &#8595;</option>
+    <option value="bookBy">Expiring soon</option>
+    <option value="nights-desc">Longest</option>
+    <option value="nights">Shortest</option>
+  </select>
+  <div class="topbar-toggles">
+    <button id="favBtn"    class="icon-btn" title="Favorites">&#9734;</button>
+    <button id="bookedBtn" class="icon-btn" title="Booked">&#10003;</button>
+    <button id="matchBtn"  class="icon-btn" title="Match">&#128279;</button>
+    <button id="syncBtn"   class="icon-btn" title="Sync from extension">&#8635; Sync</button>
+  </div>
+</header>
+
+<div id="drawerOverlay" class="drawer-overlay"></div>
+<aside id="filterDrawer" class="drawer">
+  <div class="drawer-header">
+    <span class="drawer-title">Filters</span>
+    <button id="drawerClose" class="icon-btn" aria-label="Close">&#215;</button>
+  </div>
+  <div class="drawer-body">
+    <div class="filter-section" id="profiles-section" style="display:none">
+      <div class="filter-label-row">
+        <span class="filter-label">Profiles</span>
+        <button class="filter-action" data-target="profileIds">Clear</button>
+      </div>
+      <div class="chip-group" id="profile-chips"></div>
+    </div>
+    <div class="filter-section">
+      <div class="filter-label-row">
+        <span class="filter-label">Ship</span>
+        <button class="filter-action" data-target="ships">Clear</button>
+      </div>
+      <div class="chip-group" id="ship-chips"></div>
+    </div>
+    <div class="filter-section">
+      <div class="filter-label">Sailing Within</div>
+      <div class="chip-group" id="sail-preset-chips">
+        <button class="chip active" data-days="0">Any</button>
+        <button class="chip" data-days="30">30 days</button>
+        <button class="chip" data-days="90">90 days</button>
+        <button class="chip" data-days="180">6 months</button>
+        <button class="chip" data-days="365">1 year</button>
+        <button class="chip" data-days="custom">Custom…</button>
+      </div>
+      <div class="date-inputs" id="sail-custom-inputs" style="display:none">
+        <input type="date" id="sail-from" />
+        <input type="date" id="sail-to" />
+      </div>
+    </div>
+    <div class="filter-section">
+      <div class="filter-label-row">
+        <span class="filter-label">Region</span>
+        <button class="filter-action" data-target="regions">Clear</button>
+      </div>
+      <div class="chip-group" id="region-chips"></div>
+    </div>
+    <div class="filter-section">
+      <div class="filter-label-row">
+        <span class="filter-label">Departs From</span>
+        <button class="filter-action" data-target="departurePorts">Clear</button>
+      </div>
+      <div class="chip-group" id="departure-chips"></div>
+    </div>
+    <div class="filter-section">
+      <div class="filter-label-row">
+        <span class="filter-label">Rooms</span>
+        <button class="filter-action" data-target="rooms">Clear</button>
+      </div>
+      <div id="rooms-section"></div>
+    </div>
+    <div class="filter-section">
+      <div class="filter-label">Nights</div>
+      <div class="nights-row">
+        <span id="nights-val">Any</span>
+        <input type="range" id="nights-range" min="0" max="30" value="0" step="1" />
+      </div>
+    </div>
+    <button id="reset-btn">Reset Filters</button>
+  </div>
+</aside>
+
+<div class="view-bar">
+  <button class="view-btn active" data-view="list">&#9776; List</button>
+  <button class="view-btn" data-view="calendar">&#128197; Cal</button>
+</div>
+
+<main class="content" id="main-content">
+  <div id="result-count"></div>
+  <div id="list-view"></div>
+  <div id="calendar-view" style="display:none"></div>
+</main>
+
+<!-- Sync modal (camera scanner — Phase 3) -->
+<div class="sync-modal-backdrop" id="syncModal">
+  <div class="sync-modal">
+    <h2>&#8635; Sync from Extension</h2>
+    <p>Point your camera at the animated QR code in the Offer+ extension.</p>
+    <div id="sync-video-wrap">
+      <video id="sync-video" playsinline muted></video>
+    </div>
+    <div class="sync-progress-bar-wrap">
+      <div class="sync-progress-bar" id="syncProgressBar"></div>
+    </div>
+    <span id="sync-status-text">Waiting for QR frames…</span>
+    <button id="sync-cancel-btn">Cancel</button>
+  </div>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
