@@ -8,6 +8,8 @@ const SHELL = [
   './sync.js',
   './manifest.webmanifest',
   './icons/icon.svg',
+  './vendor/jsQR.js',
+  './vendor/pako.min.js',
 ];
 
 self.addEventListener('install', e => {
