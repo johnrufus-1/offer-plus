@@ -157,6 +157,23 @@ function bindControls() {
       btn.disabled = false;
     }
   });
+  document.getElementById("sync-mobile-btn").addEventListener("click", async () => {
+    const btn = document.getElementById("sync-mobile-btn");
+    btn.textContent = "⏳";
+    btn.disabled = true;
+    try {
+      const resp = await chrome.runtime.sendMessage({ type: "GET_EXPORT_DATA" });
+      if (!resp?.ok) throw new Error(resp?.error || "Failed to load data");
+      await window.startMobileSync(resp.data);
+    } catch (e) {
+      alert("Sync failed: " + e.message);
+    } finally {
+      btn.textContent = "🔄 Sync";
+      btn.disabled = false;
+    }
+  });
+  document.getElementById("sync-mobile-close").addEventListener("click", () => window.stopMobileSync());
+  document.getElementById("sync-mobile-backdrop").addEventListener("click", () => window.stopMobileSync());
   document.getElementById("profiles-modal-close").addEventListener("click", closeProfilesModal);
   document.querySelector("#profiles-modal .modal-backdrop").addEventListener("click", closeProfilesModal);
   document.getElementById("import-file").addEventListener("change", handleImportFile);

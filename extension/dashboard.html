@@ -26,6 +26,7 @@
     <button id="match-toggle" title="Show only sailings shared across profiles">🔗 Match</button>
     <button id="profiles-btn" title="Manage profiles">👥 Profiles</button>
     <button id="export-mobile-btn" title="Export for Mobile">📱</button>
+    <button id="sync-mobile-btn" title="Sync to Mobile PWA">🔄 Sync</button>
     <span id="sync-status">Loading…</span>
   </div>
 
@@ -126,7 +127,29 @@
   </div>
 </div>
 
+<!-- Sync to Mobile modal -->
+<div id="sync-mobile-modal" style="display:none">
+  <div class="sync-modal-backdrop" id="sync-mobile-backdrop"></div>
+  <div class="sync-modal-panel">
+    <div class="sync-modal-header">
+      <h2>Sync to Mobile</h2>
+      <button class="modal-close" id="sync-mobile-close">×</button>
+    </div>
+    <div class="sync-modal-body">
+      <p class="sync-modal-hint">Point your phone at this screen. The QR cycles automatically — keep it visible until the progress bar fills on your phone.</p>
+      <canvas id="sync-mobile-canvas"></canvas>
+      <div class="sync-progress-wrap">
+        <div class="sync-progress-bar" id="sync-mobile-progress"></div>
+      </div>
+      <div class="sync-modal-label" id="sync-mobile-label">Preparing…</div>
+    </div>
+  </div>
+</div>
+
 <script src="export-generator.js"></script>
+<script src="vendor/pako.min.js"></script>
+<script src="vendor/qrcode-generator.js"></script>
+<script src="sync-to-mobile.js"></script>
 <script src="dashboard.js" type="module"></script>
 </body>
 </html>
