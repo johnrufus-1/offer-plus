@@ -289,8 +289,7 @@ function renderProfileChips() {
   for (const p of profiles) {
     const chip = document.createElement("button");
     chip.className = "chip profile-chip";
-    chip.style.setProperty("--profile-color", profileColor(p.profileId));
-    chip.innerHTML = `<span class="profile-dot"></span>${esc(p.name)}`;
+    chip.innerHTML = `<span class="profile-dot" style="background:${profileColor(p.profileId)}"></span>${esc(p.name)}`;
     chip.addEventListener("click", () => {
       if (filters.profileIds.has(p.profileId)) filters.profileIds.delete(p.profileId);
       else filters.profileIds.add(p.profileId);
