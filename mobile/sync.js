@@ -121,17 +121,14 @@ export async function startSync(callbacks) {
     if (!text.startsWith('OP1:')) return;
 
     // Frame format: OP1:{TTTT}:{IIII}:{CRC4}:{body}
-    // Split only first 4 colons to isolate the body (body may contain ':' in manifest)
-    const firstColon  = 4; // after 'OP1'
-    const p1 = text.indexOf(':', firstColon);
-    const p2 = text.indexOf(':', p1 + 1);
-    const p3 = text.indexOf(':', p2 + 1);
-    const p4 = text.indexOf(':', p3 + 1);
-    if (p4 < 0) return;
+    // Data frame bodies are pure base32 (A-Z, 2-7) — no colons.
+    // Manifest bodies contain colons (SIZE:SHA256:FRAMES), so rejoin from index 4.
+    const parts = text.split(':');
+    if (parts.length < 5) return;
 
-    const frameIndex = parseInt(text.slice(p1 + 1, p2), 16);
-    const frameCrc   = parseInt(text.slice(p3 + 1, p4), 16);
-    const body       = text.slice(p4 + 1);
+    const frameIndex = parseInt(parts[2], 16);
+    const frameCrc   = parseInt(parts[3], 16);
+    const body       = parts.slice(4).join(':');
 
     if (isNaN(frameIndex) || isNaN(frameCrc)) return;
 
