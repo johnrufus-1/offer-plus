@@ -20,6 +20,7 @@
     <div id="view-toggle">
       <button data-view="list" class="active">☰ Sailings</button>
       <button data-view="offers">◉ Offers</button>
+      <button data-view="b2b">⟺ B2B</button>
     </div>
     <button id="fav-toggle" title="Show only favorites">☆ Favorites</button>
     <button id="booked-toggle" title="Show only sailings you've booked">✓ Booked</button>
@@ -50,7 +51,7 @@
         </div>
         <div class="chip-group scrollable" id="ship-chips"></div>
       </div>
-      <div class="filter-section">
+      <div class="filter-section" id="sail-preset-section">
         <div class="filter-label">Sailing Within</div>
         <div class="chip-group" id="sail-preset-chips">
           <button class="chip active" data-days="0">Any</button>
@@ -107,6 +108,7 @@
       <div id="result-count"></div>
       <div id="list-view"></div>
       <div id="offers-view" style="display:none"></div>
+      <div id="b2b-view" style="display:none"></div>
     </div>
   </div>
 </div>

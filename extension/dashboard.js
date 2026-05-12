@@ -184,7 +184,11 @@ function bindControls() {
       document.querySelectorAll("#view-toggle button").forEach((b) => b.classList.toggle("active", b === btn));
       document.getElementById("list-view").style.display   = view === "list"   ? "" : "none";
       document.getElementById("offers-view").style.display = view === "offers" ? "" : "none";
-      render();
+      document.getElementById("b2b-view").style.display    = view === "b2b"    ? "" : "none";
+      const sailPreset = document.getElementById("sail-preset-section");
+      if (sailPreset) sailPreset.style.display = view === "b2b" ? "none" : "";
+      if (view === "b2b") renderB2B();
+      else render();
     });
   });
 }
@@ -407,8 +411,25 @@ function applySorting(sailings) {
 }
 
 // ── Rendering ──────────────────────────────────────────────────────────────
+function updateNightsSlider(maxVal) {
+  const slider = document.getElementById("nights-range");
+  if (!slider) return;
+  slider.max = maxVal;
+  if (+slider.value > maxVal) {
+    slider.value = 0;
+    filters.minNights = 0;
+    document.getElementById("nights-val").textContent = "Any";
+  }
+}
+
 function render() {
-  const filtered = applyFilters();
+  if (view === "b2b") { renderB2BResults(); return; }
+  const savedMN = filters.minNights;
+  filters.minNights = 0;
+  const pool = applyFilters();
+  filters.minNights = savedMN;
+  updateNightsSlider(Math.max(...pool.map((s) => s.nights || 0), 0));
+  const filtered = pool.filter((s) => savedMN === 0 || (s.nights || 0) >= savedMN);
   const sorted = applySorting(filtered);
   const matchCount = sorted.filter((s) => (s.matchProfileIds || []).length > 1).length;
   const summary = profiles.length > 1
@@ -473,11 +494,21 @@ function buildCard(s) {
     return `<span class="badge badge-room">${dots}${esc(room)}</span>`;
   }).join("");
 
-  // Unique offer codes across the profiles
-  const offerCodes = [...new Set(
-    (s.matchProfileIds || []).map((pid) => s.profiles?.[pid]?.offerId).filter(Boolean)
-  )];
-  const offerCodeTags = offerCodes.map((c) => `<span class="card-offer-code">${esc(c)}</span>`).join("");
+  // Offer codes grouped by code value, with profile dots for each
+  const offerToProfiles = new Map();
+  for (const pid of (s.matchProfileIds || [])) {
+    const code = s.profiles?.[pid]?.offerId;
+    if (!code) continue;
+    if (!offerToProfiles.has(code)) offerToProfiles.set(code, []);
+    offerToProfiles.get(code).push(pid);
+  }
+  const offerCodeTags = [...offerToProfiles.entries()].map(([code, pids]) => {
+    const dots = profiles.length > 1 ? pids.map((pid) => {
+      const name = profileById(pid)?.name || pid;
+      return `<span class="profile-dot" style="background:${profileColor(pid)}" title="${esc(name)}"></span>`;
+    }).join("") : "";
+    return `<span class="card-offer-code">${dots}${esc(code)}</span>`;
+  }).join("");
 
   // Card row 1: ship · offer codes · profile dots · badges · view-on-rc · booked · star
   const row1 = `
@@ -1069,6 +1100,221 @@ function buildOfferCard(offer) {
     }
   });
   return card;
+}
+
+// ── B2B Planner ────────────────────────────────────────────────────────────
+let b2bState = { rangeStart: '', rangeEnd: '', maxGap: 1, samePort: true, sameShip: true };
+
+function renderB2B() {
+  const el = document.getElementById('b2b-view');
+  if (!el) return;
+
+  // Render controls panel once (idempotent — skip if already built)
+  if (!el.querySelector('.b2b-controls')) {
+    el.innerHTML = `
+      <div class="b2b-controls filter-section">
+        <div class="filter-label">Vacation window</div>
+        <div class="b2b-inputs">
+          <label class="b2b-label">From<input type="date" id="b2b-from" /></label>
+          <label class="b2b-label">To<input type="date" id="b2b-to" /></label>
+          <label class="b2b-label" id="b2b-gap-label">Max gap · ${b2bState.maxGap}d
+            <input type="range" id="b2b-gap" min="0" max="7" value="${b2bState.maxGap}" />
+          </label>
+          <label class="b2b-label b2b-same-port-label" style="flex-direction:row;align-items:center;gap:6px;" title="${b2bState.sameShip ? 'Implied by Same Ship — uncheck Same Ship to filter by port independently' : ''}">
+            <input type="checkbox" id="b2b-same-port" ${b2bState.samePort ? 'checked' : ''} ${b2bState.sameShip ? 'disabled' : ''} />
+            Same departure port
+          </label>
+          <label class="b2b-label" style="flex-direction:row;align-items:center;gap:6px;">
+            <input type="checkbox" id="b2b-same-ship" ${b2bState.sameShip ? 'checked' : ''} />
+            Same ship
+          </label>
+        </div>
+      </div>
+      <div id="b2b-results"></div>`;
+
+    el.querySelector('#b2b-from').value = b2bState.rangeStart;
+    el.querySelector('#b2b-to').value   = b2bState.rangeEnd;
+
+    el.querySelector('#b2b-from').addEventListener('input', e => {
+      b2bState.rangeStart = e.target.value; renderB2BResults();
+    });
+    el.querySelector('#b2b-to').addEventListener('input', e => {
+      b2bState.rangeEnd = e.target.value; renderB2BResults();
+    });
+    el.querySelector('#b2b-gap').addEventListener('input', e => {
+      b2bState.maxGap = +e.target.value;
+      el.querySelector('#b2b-gap-label').firstChild.textContent = `Max gap · ${b2bState.maxGap}d`;
+      renderB2BResults();
+    });
+    el.querySelector('#b2b-same-port').addEventListener('change', e => {
+      b2bState.samePort = e.target.checked;
+      renderB2BResults();
+    });
+    el.querySelector('#b2b-same-ship').addEventListener('change', e => {
+      b2bState.sameShip = e.target.checked;
+      const portEl = el.querySelector('#b2b-same-port');
+      const portLabel = portEl.closest('label');
+      portEl.disabled = b2bState.sameShip;
+      portLabel.title = b2bState.sameShip ? 'Implied by Same Ship — uncheck Same Ship to filter by port independently' : '';
+      renderB2BResults();
+    });
+  }
+
+  renderB2BResults();
+}
+
+function renderB2BResults() {
+  const res = document.getElementById('b2b-results');
+  if (!res) return;
+  const { rangeStart, rangeEnd, maxGap } = b2bState;
+
+  if (!rangeStart || !rangeEnd || rangeEnd < rangeStart) {
+    res.innerHTML = '<div class="empty-state"><p>Set a vacation window to find back-to-back combinations.</p></div>';
+    return;
+  }
+
+  // Pre-filter the pool using sidebar filters, but let B2B own the date range
+  // and apply minNights to the chain total rather than individual legs
+  const savedFrom     = filters.sailFrom;
+  const savedTo       = filters.sailTo;
+  const savedMinNights = filters.minNights;
+  filters.sailFrom  = '';
+  filters.sailTo    = '';
+  filters.minNights = 0;
+  const pool = applyFilters();
+  filters.sailFrom  = savedFrom;
+  filters.sailTo    = savedTo;
+  filters.minNights = savedMinNights;
+
+  let chains = findB2BChains(pool, rangeStart, rangeEnd, maxGap, b2bState.samePort, b2bState.sameShip);
+  updateNightsSlider(Math.max(...chains.map((c) => c.totalNights || 0), 0));
+  if (savedMinNights > 0) chains = chains.filter(c => c.totalNights >= savedMinNights);
+
+  if (!chains.length) {
+    res.innerHTML = '<div class="empty-state"><p>No combinations found — try widening your dates or increasing the max gap.</p></div>';
+    return;
+  }
+
+  const cap = chains.length === 100;
+  res.innerHTML = `<div id="b2b-count">${cap ? 'Showing top 100 combinations' : chains.length + ' combination' + (chains.length === 1 ? '' : 's') + ' found'}</div>`;
+  chains.forEach(chain => res.appendChild(buildChainCard(chain)));
+}
+
+function buildChainCard(chain) {
+  const wrap = document.createElement('div');
+  wrap.className = 'b2b-chain-card';
+
+  chain.legs.forEach((leg, i) => {
+    wrap.appendChild(buildCard(leg));
+    if (i < chain.legs.length - 1) {
+      const gap = chain.gaps[i];
+      const div = document.createElement('div');
+      div.className = 'b2b-gap-divider';
+      div.innerHTML = `
+        <div class="b2b-connector-line"></div>
+        <div class="b2b-connector-arrow">↓ ${gap === 0 ? 'same-day turnaround' : gap + '-day gap'}</div>
+        <div class="b2b-connector-line"></div>`;
+      wrap.appendChild(div);
+    }
+  });
+
+  const commonDots = [...(chain.commonProfiles || [])].map(pid => {
+    const p = profileById(pid);
+    return `<span class="profile-dot" style="background:${profileColor(pid)}" title="${esc(p?.name || pid)}"></span>`;
+  }).join('');
+  const bookableBy = profiles.length > 1 && commonDots
+    ? `<span class="b2b-bookable">Bookable by ${commonDots}</span>`
+    : '';
+
+  const footer = document.createElement('div');
+  footer.className = 'b2b-chain-footer';
+  footer.innerHTML = `
+    <span class="card-nights">${chain.totalNights} nights total</span>
+    ${chain.totalGapDays === 0
+      ? '<span class="badge badge-ok">True back-to-back</span>'
+      : `<span class="badge">${chain.totalGapDays} gap day${chain.totalGapDays === 1 ? '' : 's'}</span>`}
+    ${bookableBy}`;
+  wrap.appendChild(footer);
+
+  return wrap;
+}
+
+function sailingOfferIds(s) {
+  return new Set((s.matchProfileIds || []).map(pid => s.profiles?.[pid]?.offerId).filter(Boolean));
+}
+
+function findB2BChains(sailings, rangeStart, rangeEnd, maxGapDays, samePort = true, sameShip = false) {
+  const pool = sailings
+    .map(s => ({ s, ret: s.returnDate || isoAddDays(s.sailDate, s.nights || 0) }))
+    .filter(({ s, ret }) => s.sailDate >= rangeStart && ret <= rangeEnd)
+    .sort((a, b) => a.s.sailDate.localeCompare(b.s.sailDate));
+
+  if (!pool.length) return [];
+
+  // chainsEndingAt[i] = all chains whose last leg is pool[i]
+  const chainsEndingAt = pool.map(({ s }) => [{
+    legs: [s], gaps: [], totalGapDays: 0, totalNights: s.nights || 0,
+    totalPrice: firstProfilePrice(s),
+    offerIds: sailingOfferIds(s),
+    commonProfiles: new Set(s.matchProfileIds || []),
+  }]);
+
+  const result = [];
+
+  for (let i = 1; i < pool.length; i++) {
+    const { s: si, ret: _ri } = pool[i];
+    const siOfferIds = sailingOfferIds(si);
+    for (let j = 0; j < i; j++) {
+      const gap = daysBetweenISO(pool[j].ret, si.sailDate);
+      if (gap < 0 || gap > maxGapDays) continue;
+      for (const prev of chainsEndingAt[j]) {
+        if (prev.legs.some(l => l.rcSailingId === si.rcSailingId)) continue;
+        if ([...siOfferIds].some(id => prev.offerIds.has(id))) continue;
+        const siProfiles = new Set(si.matchProfileIds || []);
+        const newCommon = new Set();
+        for (const pid of prev.commonProfiles) {
+          if (siProfiles.has(pid)) newCommon.add(pid);
+        }
+        if (newCommon.size === 0) continue;
+        if (samePort && si.departurePort !== prev.legs[0].departurePort) continue;
+        if (sameShip && si.ship !== prev.legs[0].ship) continue;
+        const price = prev.totalPrice != null && firstProfilePrice(si) != null
+          ? prev.totalPrice + firstProfilePrice(si) : null;
+        chainsEndingAt[i].push({
+          legs: [...prev.legs, si],
+          gaps: [...prev.gaps, gap],
+          totalGapDays: prev.totalGapDays + gap,
+          totalNights: prev.totalNights + (si.nights || 0),
+          totalPrice: price,
+          offerIds: new Set([...prev.offerIds, ...siOfferIds]),
+          commonProfiles: newCommon,
+        });
+      }
+    }
+    chainsEndingAt[i].forEach(c => { if (c.legs.length >= 2) result.push(c); });
+  }
+
+  result.sort((a, b) => {
+    if (a.totalGapDays !== b.totalGapDays) return a.totalGapDays - b.totalGapDays;
+    if (a.totalPrice != null && b.totalPrice != null) return a.totalPrice - b.totalPrice;
+    return 0;
+  });
+  return result.slice(0, 100);
+}
+
+function firstProfilePrice(s) {
+  const pids = s.matchProfileIds || [];
+  for (const pid of pids) {
+    const p = s.profiles?.[pid];
+    if (p?.priceAfterOffer != null) return p.priceAfterOffer;
+  }
+  return null;
+}
+
+function daysBetweenISO(a, b) {
+  const da = new Date(a + 'T00:00:00').getTime();
+  const db = new Date(b + 'T00:00:00').getTime();
+  return Math.round((db - da) / 86400000);
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
