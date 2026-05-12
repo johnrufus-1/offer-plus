@@ -506,23 +506,22 @@ import { loadData } from './db.js';
       ? `book by ${fmtShortDate(offer.bookByDate)}${bbDays !== null ? ' &middot; ' + (bbDays >= 0 ? bbDays + 'd' : 'expired') : ''}`
       : '';
     const urgent = bbDays !== null && bbDays >= 0 && bbDays <= 14;
-    const codeBadges = [...offer.offerIdProfiles.entries()].map(([id, pids]) => {
-      const inner = [...pids].map(pid => {
-        const p = profileById(pid);
-        return `<span class="profile-dot" style="background:${profileColor(pid)}"></span><span class="offer-profile-name" style="color:${profileColor(pid)}">${esc(p?.name || 'Unknown')}</span>`;
-      }).join(' ');
-      return `<span class="offer-code">${inner}${inner ? ' ' : ''}${esc(id)}</span>`;
+    const codeBadges = [...offer.offerIdProfiles.keys()].map(id => `<span class="offer-code">${esc(id)}</span>`).join('');
+    const profileChips = [...new Set([...(offer.offerIdProfiles?.values() ?? [])].flatMap(s => [...s]))].map(pid => {
+      const p = profileById(pid);
+      return `<span class="offer-profile-chip"><span class="profile-dot" style="background:${profileColor(pid)}"></span><span class="offer-profile-name" style="color:${profileColor(pid)}">${esc(p?.name || 'Unknown')}</span></span>`;
     }).join('');
 
     card.innerHTML = `
       <div class="offer-card-header">
         <div class="offer-card-left">
           <span class="offer-title">${esc(offer.title)}</span>
+          ${codeBadges}
         </div>
         ${bbStr ? `<span class="offer-bookby${urgent ? ' urgent' : ''}">${bbStr}</span>` : ''}
       </div>
       <div class="offer-sub">
-        <span class="offer-codes">${codeBadges}</span>
+        <span class="offer-profiles">${profileChips}</span>
         <span class="offer-sailing-count">${offer.sailings.length} sailing${offer.sailings.length !== 1 ? 's' : ''}</span>
       </div>
       <button class="card-expand-btn" aria-expanded="false">&#8250; sailings</button>
