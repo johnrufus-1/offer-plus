@@ -1,4 +1,4 @@
-const CACHE = 'offer-plus-v3';
+const CACHE = 'offer-plus-v4';
 const SHELL = [
   './',
   './index.html',
@@ -21,20 +21,44 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
-      .then(() => self.clients.claim())
+      .then(keys => {
+        const isUpdate = keys.some(k => k !== CACHE);
+        return Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+          .then(() => isUpdate);
+      })
+      .then(isUpdate => self.clients.claim().then(() => isUpdate))
+      .then(isUpdate => {
+        if (!isUpdate) return;
+        return self.clients.matchAll({ includeUncontrolled: true })
+          .then(clients => clients.forEach(c => c.postMessage({ type: 'SW_UPDATED' })));
+      })
   );
 });
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
-  e.respondWith(
-    caches.match(e.request).then(hit => hit || fetch(e.request).then(res => {
-      if (res.ok) {
-        const clone = res.clone();
-        caches.open(CACHE).then(c => c.put(e.request, clone));
-      }
-      return res;
-    }))
-  );
+  const url = new URL(e.request.url);
+  const isVendor = url.pathname.includes('/vendor/') || url.pathname.includes('/icons/');
+
+  if (isVendor) {
+    // Cache-first: vendor files and icons never change between releases
+    e.respondWith(
+      caches.match(e.request).then(hit => hit || fetch(e.request).then(res => {
+        if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()));
+        return res;
+      }))
+    );
+  } else {
+    // Network-first: always get latest; fall back to cache when offline
+    e.respondWith(
+      fetch(e.request).then(res => {
+        if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()));
+        return res;
+      }).catch(() => caches.match(e.request)
+          .then(hit => hit || (e.request.mode === 'navigate'
+            ? caches.match('./index.html')
+            : new Response('', { status: 503 })))
+      )
+    );
+  }
 });

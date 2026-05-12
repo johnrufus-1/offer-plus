@@ -781,5 +781,15 @@ import { loadData } from './db.js';
   // ── Service worker registration ──────────────────────────────────────────
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').catch(() => {});
+    navigator.serviceWorker.addEventListener('message', e => {
+      if (e.data?.type !== 'SW_UPDATED') return;
+      if (document.getElementById('update-banner')) return;
+      const banner = document.createElement('div');
+      banner.id = 'update-banner';
+      banner.innerHTML = `App updated <button id="update-reload">Reload</button> <button id="update-dismiss">✕</button>`;
+      document.body.appendChild(banner);
+      document.getElementById('update-reload').addEventListener('click', () => location.reload());
+      document.getElementById('update-dismiss').addEventListener('click', () => banner.remove());
+    });
   }
 })();
