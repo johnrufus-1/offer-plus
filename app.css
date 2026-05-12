@@ -458,9 +458,8 @@ body {
 .offer-bookby { font-size: 12px; color: var(--muted); flex-shrink: 0; }
 .offer-bookby.urgent { color: #fca5a5; }
 .offer-sub { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 6px; }
-.offer-profiles { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.offer-profile-chip { display: flex; align-items: center; gap: 3px; }
-.offer-profile-name { font-weight: 600; white-space: nowrap; }
+.offer-codes { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.offer-code { display: inline-flex; align-items: center; gap: 3px; }
 .offer-sailing-count { margin-left: auto; white-space: nowrap; }
 .offer-sailings { margin-top: 8px; }
 

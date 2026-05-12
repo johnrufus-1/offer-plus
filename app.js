@@ -470,15 +470,14 @@ import { loadData } from './db.js';
           offerMap.set(title, {
             title,
             bookByDate: pdata.offer?.bookByDate || null,
-            offerIds: new Set(),
-            profiles: new Set(),
+            offerIdProfiles: new Map(),
             sailingIds: new Set(),
             sailings: [],
           });
         }
         const entry = offerMap.get(title);
-        entry.offerIds.add(offerId);
-        entry.profiles.add(pid);
+        if (!entry.offerIdProfiles.has(offerId)) entry.offerIdProfiles.set(offerId, new Set());
+        entry.offerIdProfiles.get(offerId).add(pid);
         if (!entry.sailingIds.has(s.rcSailingId)) {
           entry.sailingIds.add(s.rcSailingId);
           entry.sailings.push(s);
@@ -507,21 +506,20 @@ import { loadData } from './db.js';
       ? `book by ${fmtShortDate(offer.bookByDate)}${bbDays !== null ? ' &middot; ' + (bbDays >= 0 ? bbDays + 'd' : 'expired') : ''}`
       : '';
     const urgent = bbDays !== null && bbDays >= 0 && bbDays <= 14;
-    const profileDots = [...offer.profiles].map(pid => {
-      const p = profileById(pid);
-      return `<span class="offer-profile-chip"><span class="profile-dot" style="background:${profileColor(pid)}"></span><span class="offer-profile-name" style="color:${profileColor(pid)}">${esc(p?.name || pid)}</span></span>`;
+    const codeBadges = [...offer.offerIdProfiles.entries()].map(([id, pids]) => {
+      const dots = [...pids].map(pid => `<span class="profile-dot" style="background:${profileColor(pid)}"></span>`).join('');
+      return `<span class="offer-code">${dots}${esc(id)}</span>`;
     }).join('');
 
     card.innerHTML = `
       <div class="offer-card-header">
         <div class="offer-card-left">
           <span class="offer-title">${esc(offer.title)}</span>
-          ${[...offer.offerIds].map(id => `<span class="offer-code">${esc(id)}</span>`).join('')}
         </div>
         ${bbStr ? `<span class="offer-bookby${urgent ? ' urgent' : ''}">${bbStr}</span>` : ''}
       </div>
       <div class="offer-sub">
-        <span class="offer-profiles">${profileDots}</span>
+        <span class="offer-codes">${codeBadges}</span>
         <span class="offer-sailing-count">${offer.sailings.length} sailing${offer.sailings.length !== 1 ? 's' : ''}</span>
       </div>
       <div class="offer-sailings" hidden></div>
