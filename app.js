@@ -507,8 +507,11 @@ import { loadData } from './db.js';
       : '';
     const urgent = bbDays !== null && bbDays >= 0 && bbDays <= 14;
     const codeBadges = [...offer.offerIdProfiles.entries()].map(([id, pids]) => {
-      const dots = [...pids].map(pid => `<span class="profile-dot" style="background:${profileColor(pid)}"></span>`).join('');
-      return `<span class="offer-code">${dots}${esc(id)}</span>`;
+      const inner = [...pids].map(pid => {
+        const p = profileById(pid);
+        return `<span class="profile-dot" style="background:${profileColor(pid)}"></span><span class="offer-profile-name" style="color:${profileColor(pid)}">${esc(p?.name || 'Unknown')}</span>`;
+      }).join(' ');
+      return `<span class="offer-code">${inner}${inner ? ' ' : ''}${esc(id)}</span>`;
     }).join('');
 
     card.innerHTML = `
@@ -522,8 +525,8 @@ import { loadData } from './db.js';
         <span class="offer-codes">${codeBadges}</span>
         <span class="offer-sailing-count">${offer.sailings.length} sailing${offer.sailings.length !== 1 ? 's' : ''}</span>
       </div>
-      <div class="offer-sailings" hidden></div>
       <button class="card-expand-btn" aria-expanded="false">&#8250; sailings</button>
+      <div class="offer-sailings" hidden></div>
     `;
 
     const sailingsEl = card.querySelector('.offer-sailings');
