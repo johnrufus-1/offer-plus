@@ -47,6 +47,7 @@ body {
   display: flex;
   gap: 8px;
 }
+.logo-version { font-size: 10px; font-weight: 400; opacity: 0.5; vertical-align: middle; }
 .logo {
   font-size: 15px;
   font-weight: 700;
