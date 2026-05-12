@@ -182,8 +182,8 @@ function bindControls() {
     btn.addEventListener("click", () => {
       view = btn.dataset.view;
       document.querySelectorAll("#view-toggle button").forEach((b) => b.classList.toggle("active", b === btn));
-      document.getElementById("list-view").style.display = view === "list" ? "" : "none";
-      document.getElementById("calendar-view").style.display = view === "calendar" ? "" : "none";
+      document.getElementById("list-view").style.display   = view === "list"   ? "" : "none";
+      document.getElementById("offers-view").style.display = view === "offers" ? "" : "none";
       render();
     });
   });
@@ -414,9 +414,9 @@ function render() {
   const summary = profiles.length > 1
     ? `${sorted.length} of ${counts.uniqueSailings} sailings · ${matchCount} match${matchCount !== 1 ? "es" : ""}`
     : `${sorted.length} sailing${sorted.length !== 1 ? "s" : ""} of ${counts.uniqueSailings}`;
-  document.getElementById("result-count").textContent = summary;
+  document.getElementById("result-count").textContent = view === "offers" ? "" : summary;
   if (view === "list") renderList(sorted);
-  else renderCalendar(sorted);
+  else if (view === "offers") renderOffers();
 }
 
 function renderList(sailings) {
@@ -998,98 +998,77 @@ function isoAddDays(iso, n) {
   return dt.toISOString().slice(0, 10);
 }
 
-// ── Calendar view ──────────────────────────────────────────────────────────
-function renderCalendar(sailings) {
-  const el = document.getElementById("calendar-view");
-  if (!sailings.length) {
-    el.innerHTML = `<div class="empty-state"><h3>No sailings match</h3><p>Adjust your filters to see sailings on the calendar.</p></div>`;
+// ── Offers view ────────────────────────────────────────────────────────────
+function renderOffers() {
+  const el = document.getElementById("offers-view");
+  const offerMap = new Map();
+  allSailings.forEach(s => {
+    (s.matchProfileIds || []).forEach(pid => {
+      const pdata = s.profiles?.[pid] || {};
+      const offerId = pdata.offerId;
+      if (!offerId) return;
+      const key = `${pid}:${offerId}`;
+      if (!offerMap.has(key)) {
+        offerMap.set(key, {
+          pid, offerId,
+          title: pdata.offer?.title || offerId,
+          bookByDate: pdata.offer?.bookByDate || null,
+          sailings: [],
+        });
+      }
+      offerMap.get(key).sailings.push(s);
+    });
+  });
+  const offers = [...offerMap.values()].sort((a, b) => {
+    if (!a.bookByDate && !b.bookByDate) return 0;
+    if (!a.bookByDate) return 1;
+    if (!b.bookByDate) return -1;
+    return a.bookByDate.localeCompare(b.bookByDate);
+  });
+  if (!offers.length) {
+    el.innerHTML = `<div class="empty-state"><h3>No offers</h3><p>Sync from the Club Royale offers page to load offers.</p></div>`;
     return;
   }
-
-  const byMonth = new Map();
-  for (const s of sailings) {
-    if (!s.sailDate) continue;
-    const ym = s.sailDate.slice(0, 7);
-    if (!byMonth.has(ym)) byMonth.set(ym, []);
-    byMonth.get(ym).push(s);
-  }
-
   el.innerHTML = "";
-  const months = document.createElement("div");
-  months.className = "cal-months";
-
-  const panel = document.createElement("div");
-  panel.className = "cal-side-panel";
-  panel.innerHTML = `<div class="cal-side-empty">Click a highlighted day to see sailings</div>`;
-
-  const sorted = [...byMonth.entries()].sort(([a], [b]) => a.localeCompare(b));
-  for (const [ym, ms] of sorted) months.appendChild(buildMonth(ym, ms, panel));
-
-  el.appendChild(months);
-  el.appendChild(panel);
+  offers.forEach(offer => el.appendChild(buildOfferCard(offer)));
 }
 
-function buildMonth(ym, sailings, panel) {
-  const [year, month] = ym.split("-").map(Number);
-  const daysInMonth = new Date(year, month, 0).getDate();
-  const firstDow = new Date(year, month - 1, 1).getDay();
+function buildOfferCard(offer) {
+  const card = document.createElement("div");
+  card.className = "offer-card";
+  const p = profileById(offer.pid);
+  const bbDays = offer.bookByDate ? daysUntil(offer.bookByDate) : null;
+  const bbStr = offer.bookByDate
+    ? `book by ${fmtShortDate(offer.bookByDate)}${bbDays !== null ? " · " + (bbDays > 0 ? bbDays + "d" : "expired") : ""}`
+    : "";
+  const urgent = bbDays !== null && bbDays <= 14;
 
-  const byDay = new Map();
-  for (const s of sailings) {
-    const day = +s.sailDate.slice(8, 10);
-    if (!byDay.has(day)) byDay.set(day, []);
-    byDay.get(day).push(s);
-  }
-
-  const maxCount = Math.max(...[...byDay.values()].map((a) => a.length), 1);
-
-  const wrap = document.createElement("div");
-  wrap.className = "cal-month";
-  const monthName = new Date(year, month - 1, 1).toLocaleString("default", { month: "long", year: "numeric" });
-  wrap.innerHTML = `
-    <div class="cal-month-header">
-      <span class="cal-month-name">${monthName}</span>
-      <span class="cal-month-count">${sailings.length} sailing${sailings.length !== 1 ? "s" : ""}</span>
+  card.innerHTML = `
+    <div class="offer-card-header">
+      <div class="offer-card-left">
+        <span class="profile-dot" style="background:${profileColor(offer.pid)}"></span>
+        <span class="offer-profile-name" style="color:${profileColor(offer.pid)}">${esc(p?.name || offer.pid)}</span>
+        <span class="offer-title">${esc(offer.title)}</span>
+      </div>
+      ${bbStr ? `<span class="offer-bookby${urgent ? " urgent" : ""}">${bbStr}</span>` : ""}
     </div>
-    <div class="cal-grid">
-      ${["Su","Mo","Tu","We","Th","Fr","Sa"].map((d) => `<div class="cal-dow">${d}</div>`).join("")}
-    </div>`;
+    <div class="offer-sub">${offer.sailings.length} sailing${offer.sailings.length !== 1 ? "s" : ""}</div>
+    <div class="offer-sailings" hidden></div>
+    <button class="card-expand-btn" aria-expanded="false">&#8250; sailings</button>
+  `;
 
-  const grid = wrap.querySelector(".cal-grid");
-
-  for (let i = 0; i < firstDow; i++) {
-    const cell = document.createElement("div");
-    cell.className = "cal-day";
-    cell.style.border = "none";
-    grid.appendChild(cell);
-  }
-
-  for (let d = 1; d <= daysInMonth; d++) {
-    const cell = document.createElement("div");
-    cell.className = "cal-day";
-    const daySailings = byDay.get(d);
-    if (daySailings?.length) {
-      cell.classList.add("has-sailings");
-      const intensity = Math.round((daySailings.length / maxCount) * 100);
-      cell.style.background = `rgba(59,130,246,${0.15 + intensity * 0.006})`;
-      cell.style.borderColor = `rgba(59,130,246,${0.3 + intensity * 0.005})`;
-      cell.innerHTML = `<span class="cal-day-num">${d}</span><span class="cal-day-count" style="color:#93c5fd">${daySailings.length}</span>`;
-
-      cell.addEventListener("click", () => {
-        document.querySelectorAll(".cal-day-active").forEach((c) => c.classList.remove("cal-day-active"));
-        cell.classList.add("cal-day-active");
-
-        const dateStr = fmtShortDate(`${ym}-${String(d).padStart(2, "0")}`);
-        panel.innerHTML = `<div class="cal-detail-header">${dateStr} — ${daySailings.length} sailing${daySailings.length !== 1 ? "s" : ""}</div>`;
-        for (const s of daySailings) panel.appendChild(buildCard(s));
-      });
-    } else {
-      cell.innerHTML = `<span class="cal-day-num" style="color:#4b5563">${d}</span>`;
+  const sailingsEl = card.querySelector(".offer-sailings");
+  const btn = card.querySelector(".card-expand-btn");
+  btn.addEventListener("click", () => {
+    const isOpen = !sailingsEl.hidden;
+    sailingsEl.hidden = isOpen;
+    btn.setAttribute("aria-expanded", String(!isOpen));
+    btn.textContent = isOpen ? "› sailings" : "‹ sailings";
+    if (!isOpen && !sailingsEl.children.length) {
+      offer.sailings.forEach(s => sailingsEl.appendChild(buildCard(s)));
     }
-    grid.appendChild(cell);
-  }
-
-  return wrap;
+  });
+  return card;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────

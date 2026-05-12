@@ -1,4 +1,4 @@
-const CACHE = 'offer-plus-v2';
+const CACHE = 'offer-plus-v3';
 const SHELL = [
   './',
   './index.html',
