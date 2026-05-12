@@ -17,21 +17,26 @@
 <body>
 
 <header class="topbar">
-  <button id="filterToggle" class="icon-btn" aria-label="Filters">&#9776;</button>
-  <span class="logo">&#9824; Offer+</span>
-  <input id="search" type="search" placeholder="Search ships, ports…" autocomplete="off" />
-  <select id="sortSelect">
-    <option value="sailDate">Date &#8593;</option>
-    <option value="sailDate-desc">Date &#8595;</option>
-    <option value="bookBy">Expiring soon</option>
-    <option value="nights-desc">Longest</option>
-    <option value="nights">Shortest</option>
-  </select>
-  <div class="topbar-toggles">
-    <button id="favBtn"    class="icon-btn" title="Favorites">&#9734;</button>
-    <button id="bookedBtn" class="icon-btn" title="Booked">&#10003;</button>
-    <button id="matchBtn"  class="icon-btn" title="Match">&#128279;</button>
-    <button id="syncBtn"   class="icon-btn" title="Sync from extension">&#8635; Sync</button>
+  <div class="topbar-row1">
+    <button id="filterToggle" class="icon-btn" aria-label="Filters">&#9776;</button>
+    <span class="logo">&#9824; Offer+</span>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-toggles">
+      <button id="favBtn"    class="icon-btn" title="Favorites">&#9734;</button>
+      <button id="bookedBtn" class="icon-btn" title="Booked">&#10003;</button>
+      <button id="matchBtn"  class="icon-btn" title="Match">&#128279;</button>
+      <button id="syncBtn"   class="icon-btn" title="Sync from extension">&#8635; Sync</button>
+    </div>
+  </div>
+  <div class="topbar-row2">
+    <input id="search" type="search" placeholder="Search ships, ports…" autocomplete="off" />
+    <select id="sortSelect">
+      <option value="sailDate">Date &#8593;</option>
+      <option value="sailDate-desc">Date &#8595;</option>
+      <option value="bookBy">Expiring soon</option>
+      <option value="nights-desc">Longest</option>
+      <option value="nights">Shortest</option>
+    </select>
   </div>
 </header>
 
@@ -106,12 +111,14 @@
 <div class="view-bar">
   <button class="view-btn active" data-view="list">&#9776; List</button>
   <button class="view-btn" data-view="calendar">&#128197; Cal</button>
+  <button class="view-btn" data-view="b2b">&#8651; B2B</button>
 </div>
 
 <main class="content" id="main-content">
   <div id="result-count"></div>
   <div id="list-view"></div>
   <div id="calendar-view" style="display:none"></div>
+  <div id="b2b-view" style="display:none"></div>
 </main>
 
 <!-- Sync modal (camera scanner — Phase 3) -->
