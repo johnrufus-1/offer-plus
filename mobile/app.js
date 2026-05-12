@@ -497,9 +497,9 @@ import { loadData } from './db.js';
     const p = profileById(offer.pid);
     const bbDays = offer.bookByDate ? daysUntil(offer.bookByDate) : null;
     const bbStr = offer.bookByDate
-      ? `book by ${fmtShortDate(offer.bookByDate)}${bbDays !== null ? ' &middot; ' + (bbDays > 0 ? bbDays + 'd' : 'expired') : ''}`
+      ? `book by ${fmtShortDate(offer.bookByDate)}${bbDays !== null ? ' &middot; ' + (bbDays >= 0 ? bbDays + 'd' : 'expired') : ''}`
       : '';
-    const urgent = bbDays !== null && bbDays <= 14;
+    const urgent = bbDays !== null && bbDays >= 0 && bbDays <= 14;
 
     card.innerHTML = `
       <div class="offer-card-header">
