@@ -233,6 +233,10 @@ import { loadData } from './db.js';
         document.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('active', b === btn));
         document.getElementById('list-view').style.display     = view === 'list'     ? '' : 'none';
         document.getElementById('calendar-view').style.display = view === 'calendar' ? '' : 'none';
+        document.getElementById('b2b-view').style.display      = view === 'b2b'      ? '' : 'none';
+        // hide sail-date filter preset when in B2B (B2B owns the date range)
+        const sailPreset = document.getElementById('sail-preset-chips')?.closest('.filter-section');
+        if (sailPreset) sailPreset.style.display = view === 'b2b' ? 'none' : '';
         render();
       });
     });
@@ -317,86 +321,115 @@ import { loadData } from './db.js';
     const card = document.createElement('div');
     card.className = 'sailing-card';
 
+    const isFav    = favSet.has(s.rcSailingId);
+    const isBooked = bookedSet.has(s.rcSailingId);
+    if (isFav)    card.classList.add('is-fav');
+    if (isBooked) card.classList.add('is-booked');
+
+    // -- Urgency (≤7 days) --
     const bookByDate = earliestBookBy(s);
     const daysLeft   = bookByDate ? daysUntil(bookByDate) : null;
     const urgencyBadge = (daysLeft !== null && daysLeft <= 7)
       ? `<span class="badge badge-warn">${daysLeft <= 0 ? 'Expired' : daysLeft + 'd left'}</span>` : '';
+    const favIcon    = isFav    ? `<span class="card-fav-icon">&#9733;</span>` : '';
+    const bookedIcon = isBooked ? `<span class="card-booked-icon">&#10003;</span>` : '';
+    const nightsBadge = s.nights ? `<span class="card-nights">${s.nights}n</span>` : '';
 
-    const isFav    = favSet.has(s.rcSailingId);
-    const isBooked = bookedSet.has(s.rcSailingId);
-    const isMatch  = (s.matchProfileIds || []).length > 1;
+    // -- Sub line --
+    const subParts = [
+      fmtShortDate(s.sailDate),
+      s.departurePort ? `from ${esc(s.departurePort)}` : null,
+      s.region || null,
+    ].filter(Boolean).join(' &middot; ');
 
-    const profileDots = (s.matchProfileIds || []).map(pid => {
-      const p = profileById(pid);
-      return `<span class="profile-dot" style="background:${profileColor(pid)}" title="${esc(p ? p.name : pid)}"></span>`;
-    }).join('');
-
-    const matchBadge  = isMatch  ? `<span class="badge badge-match">&#128279; Match &middot; ${s.matchProfileIds.length}</span>` : '';
-    const bookedBadge = isBooked ? `<span class="badge badge-ok">&#10003; Booked</span>` : '';
-    const favStar     = isFav    ? `<span class="badge-fav">&#9733;</span>` : '';
-
-    const itinUrl  = buildItineraryUrl(s);
-    const itinLink = itinUrl ? `<a class="card-itin-link" href="${esc(itinUrl)}" target="_blank" rel="noopener">View on RC &#8599;</a>` : '';
-
-    const roomToProfiles = new Map();
-    (s.matchProfileIds || []).forEach(pid => {
-      const r = s.profiles?.[pid]?.stateroomCategory;
-      if (!r) return;
-      if (!roomToProfiles.has(r)) roomToProfiles.set(r, []);
-      roomToProfiles.get(r).push(pid);
-    });
-    const roomBadges = [...roomToProfiles.entries()].map(([room, pids]) => {
-      const dots = pids.map(pid => {
-        const name = (profileById(pid) || {}).name || pid;
-        return `<span class="profile-dot" style="background:${profileColor(pid)}" title="${esc(name)}"></span>`;
-      }).join('');
-      return `<span class="badge badge-room">${dots}${esc(room)}</span>`;
-    }).join('');
-
-    const offerCodes = [...new Set((s.matchProfileIds || []).map(pid => s.profiles?.[pid]?.offerId).filter(Boolean))];
-    const offerCodeTags = offerCodes.map(c => `<span class="card-offer-code">${esc(c)}</span>`).join('');
-
-    const row1 = `<div class="card-row1">
-      <span class="card-ship">${esc(s.ship || 'Unknown Ship')}</span>
-      ${offerCodeTags}
-      ${profileDots ? `<span class="profile-dots">${profileDots}</span>` : ''}
-    </div>
-    <div class="card-badges">${matchBadge}${roomBadges}${urgencyBadge}${bookedBadge}${favStar}${itinLink}</div>`;
-
-    const parts2 = [
-      `<span class="card-date">${fmtShortDate(s.sailDate)}</span>`,
-      s.nights ? `<span class="card-nights">${s.nights}n</span>` : '',
-      s.departurePort ? `<span class="card-sep">&middot;</span><span class="card-port">from ${esc(s.departurePort)}</span>` : '',
-      s.region        ? `<span class="card-sep">&middot;</span><span class="card-port">${esc(s.region)}</span>` : '',
-      s.itineraryName ? `<span class="card-sep">&middot;</span><span class="card-itinerary">${esc(s.itineraryName)}</span>` : '',
-    ].filter(Boolean).join('');
-    const row2 = `<div class="card-row2">${parts2}</div>`;
-
-    const portChips = (s.portsOfCall || []).map(p => `<span class="port-chip">${esc(p)}</span>`).join('');
-    const row3 = portChips ? `<div class="card-row3">${portChips}</div>` : '';
-
+    // -- Collapsed profile rows: name + offer title | book-by --
     const profileRows = (s.matchProfileIds || []).map(pid => {
-      const pdata = s.profiles?.[pid] || {};
-      const p     = profileById(pid);
+      const pdata  = s.profiles?.[pid] || {};
+      const p      = profileById(pid);
+      const room   = pdata.stateroomCategory ? `<span class="profile-row-desc">${esc(pdata.stateroomCategory)}</span>` : '';
       const bookBy = pdata.offer?.bookByDate;
       const bbDays = bookBy ? daysUntil(bookBy) : null;
       const bbStr  = bookBy
-        ? `<span class="profile-row-bookby${bbDays !== null && bbDays <= 14 ? ' urgent' : ''}">book by ${fmtShortDate(bookBy)}${bbDays !== null ? ' &middot; ' + (bbDays > 0 ? bbDays + 'd' : 'expired') : ''}</span>`
-        : '';
-      const desc  = pdata.offer?.description ? `<span class="profile-row-desc">${esc(pdata.offer.description)}</span>` : '';
-      const room  = pdata.stateroomCategory  ? `<span class="profile-row-room">${esc(pdata.stateroomCategory)}</span>` : '';
-      const price = pdata.priceAfterOffer != null
-        ? `<span class="profile-row-price">$${pdata.priceAfterOffer.toLocaleString()}${pdata.taxesFees != null ? ` <span class="card-price-taxes">+$${pdata.taxesFees}</span>` : ''}</span>`
+        ? `<span class="profile-row-bookby${bbDays !== null && bbDays <= 14 ? ' urgent' : ''}">book by ${fmtShortDate(bookBy)}</span>`
         : '';
       return `<div class="profile-row">
-        <span class="profile-row-name" style="color:${profileColor(pid)}">
-          <span class="profile-dot" style="background:${profileColor(pid)}"></span>${esc((p?.name) || pid)}
-        </span>
-        ${desc}${room}${price}${bbStr}
+        <div class="profile-row-left">
+          <span class="profile-dot" style="background:${profileColor(pid)}"></span>
+          <span class="profile-row-name" style="color:${profileColor(pid)}">${esc(p?.name || pid)}</span>
+          ${room}
+        </div>
+        <div class="profile-row-right">
+          ${bbStr}
+        </div>
       </div>`;
     }).join('');
 
-    card.innerHTML = row1 + row2 + row3 + profileRows;
+    // -- Extras: ports, badges, offer descriptions + book-by --
+    const portChips = (s.portsOfCall || []).map(p => `<span class="port-chip">${esc(p)}</span>`).join('');
+    const isMatch   = (s.matchProfileIds || []).length > 1;
+    const matchBadge  = isMatch  ? `<span class="badge badge-match">&#128279; Match &middot; ${s.matchProfileIds.length}</span>` : '';
+    const bookedBadge = isBooked ? `<span class="badge badge-ok">&#10003; Booked</span>` : '';
+    const itinUrl   = buildItineraryUrl(s);
+    const itinLink  = itinUrl ? `<a class="card-itin-link" href="${esc(itinUrl)}" target="_blank" rel="noopener">View on RC &#8599;</a>` : '';
+    const offerCodes = [...new Set((s.matchProfileIds || []).map(pid => s.profiles?.[pid]?.offerId).filter(Boolean))];
+    const offerCodeTags = offerCodes.map(c => `<span class="card-offer-code">${esc(c)}</span>`).join('');
+    const offerDescs = (s.matchProfileIds || []).map(pid => {
+      const pdata  = s.profiles?.[pid] || {};
+      const p      = profileById(pid);
+      const desc   = pdata.offer?.description;
+      const bookBy = pdata.offer?.bookByDate;
+      const bbDays = bookBy ? daysUntil(bookBy) : null;
+      const bbStr  = bookBy
+        ? `book by ${fmtShortDate(bookBy)}${bbDays !== null ? ' &middot; ' + (bbDays > 0 ? bbDays + 'd' : 'expired') : ''}`
+        : '';
+      if (!desc && !bbStr) return '';
+      return `<div class="card-offer-desc">
+        <span class="profile-dot" style="background:${profileColor(pid)}"></span>
+        <span class="card-offer-desc-name" style="color:${profileColor(pid)}">${esc(p?.name || pid)}</span>
+        ${desc ? `<span>${esc(desc)}</span>` : ''}
+        ${bbStr ? `<span class="card-offer-bookby${bbDays !== null && bbDays <= 14 ? ' urgent' : ''}">${bbStr}</span>` : ''}
+      </div>`;
+    }).filter(Boolean).join('');
+
+    const hasExtras = portChips || matchBadge || bookedBadge || itinLink || offerCodeTags || offerDescs;
+    const extrasBadges = (matchBadge || bookedBadge || itinLink)
+      ? `<div class="card-extras-badges">${matchBadge}${bookedBadge}${itinLink}</div>` : '';
+    const extrasHTML = hasExtras ? `
+      <div class="card-extras" hidden>
+        ${portChips    ? `<div class="card-extras-ports">${portChips}</div>` : ''}
+        ${offerCodeTags ? `<div class="card-extras-badges">${offerCodeTags}</div>` : ''}
+        ${extrasBadges}
+        ${offerDescs}
+      </div>
+      <button class="card-expand-btn" aria-expanded="false">&#8250; more</button>
+    ` : '';
+
+    card.innerHTML = `
+      <div class="card-top">
+        <div class="card-top-left">
+          <span class="card-ship">${esc(s.ship || 'Unknown Ship')}</span>
+          ${nightsBadge}
+        </div>
+        <div class="card-top-right">
+          ${urgencyBadge}${bookedIcon}${favIcon}
+        </div>
+      </div>
+      <div class="card-sub">${subParts}</div>
+      ${profileRows}
+      ${extrasHTML}
+    `;
+
+    if (hasExtras) {
+      card.querySelector('.card-expand-btn').addEventListener('click', e => {
+        const extras = card.querySelector('.card-extras');
+        const btn    = e.currentTarget;
+        const isOpen = !extras.hidden;
+        extras.hidden = isOpen;
+        btn.setAttribute('aria-expanded', String(!isOpen));
+        btn.textContent = isOpen ? '› more' : '‹ less';
+      });
+    }
+
     return card;
   }
 
@@ -408,8 +441,9 @@ import { loadData } from './db.js';
     const summary = profiles.length > 1
       ? `${sorted.length} of ${counts.uniqueSailings || 0} sailings · ${matchCount} ${matchCount !== 1 ? 'matches' : 'match'}`
       : `${sorted.length} sailing${sorted.length !== 1 ? 's' : ''} of ${counts.uniqueSailings || 0}`;
-    document.getElementById('result-count').textContent = summary;
+    document.getElementById('result-count').textContent = view === 'b2b' ? '' : summary;
     if (view === 'list') renderList(sorted);
+    else if (view === 'b2b') renderB2B();
     else renderCalendar(sorted);
   }
   function renderList(sailings) {
@@ -516,6 +550,176 @@ import { loadData } from './db.js';
     render();
   }
   init();
+
+  // ── B2B Planner ─────────────────────────────────────────────────────────────
+  let b2bState = { rangeStart: '', rangeEnd: '', maxGap: 1, samePort: true, sameShip: false };
+
+  function renderB2B() {
+    const el = document.getElementById('b2b-view');
+    if (!el.querySelector('.b2b-controls')) {
+      el.innerHTML = `
+        <div class="b2b-controls">
+          <div class="b2b-controls-title">Vacation window</div>
+          <div class="b2b-inputs">
+            <label class="b2b-label">From<input type="date" id="b2b-from" /></label>
+            <label class="b2b-label">To<input type="date" id="b2b-to" /></label>
+          </div>
+          <div class="b2b-gap-row">
+            <span id="b2b-gap-label">Max gap · ${b2bState.maxGap}d</span>
+            <input type="range" id="b2b-gap" min="0" max="7" value="${b2bState.maxGap}" />
+          </div>
+          <div class="b2b-toggles">
+            <label class="b2b-toggle-label${b2bState.sameShip ? ' disabled' : ''}" id="b2b-same-port-label">
+              <input type="checkbox" id="b2b-same-port" ${b2bState.samePort ? 'checked' : ''} ${b2bState.sameShip ? 'disabled' : ''} />
+              Same departure port
+            </label>
+            <label class="b2b-toggle-label">
+              <input type="checkbox" id="b2b-same-ship" ${b2bState.sameShip ? 'checked' : ''} />
+              Same ship
+            </label>
+          </div>
+        </div>
+        <div id="b2b-count"></div>
+        <div id="b2b-results"></div>`;
+      el.querySelector('#b2b-from').value = b2bState.rangeStart;
+      el.querySelector('#b2b-to').value   = b2bState.rangeEnd;
+      el.querySelector('#b2b-from').addEventListener('input', e => { b2bState.rangeStart = e.target.value; renderB2BResults(); });
+      el.querySelector('#b2b-to').addEventListener('input',   e => { b2bState.rangeEnd   = e.target.value; renderB2BResults(); });
+      el.querySelector('#b2b-gap').addEventListener('input',  e => {
+        b2bState.maxGap = +e.target.value;
+        el.querySelector('#b2b-gap-label').textContent = `Max gap · ${b2bState.maxGap}d`;
+        renderB2BResults();
+      });
+      el.querySelector('#b2b-same-port').addEventListener('change', e => { b2bState.samePort = e.target.checked; renderB2BResults(); });
+      el.querySelector('#b2b-same-ship').addEventListener('change', e => {
+        b2bState.sameShip = e.target.checked;
+        const portLabel = el.querySelector('#b2b-same-port-label');
+        const portCb    = el.querySelector('#b2b-same-port');
+        portCb.disabled = b2bState.sameShip;
+        portLabel.classList.toggle('disabled', b2bState.sameShip);
+        renderB2BResults();
+      });
+    }
+    renderB2BResults();
+  }
+
+  function renderB2BResults() {
+    const res = document.getElementById('b2b-results');
+    const countEl = document.getElementById('b2b-count');
+    if (!res) return;
+    // get fresh pool from filters, but let B2B own the date range
+    const savedFrom = filters.sailFrom, savedTo = filters.sailTo, savedMin = filters.minNights;
+    filters.sailFrom = ''; filters.sailTo = ''; filters.minNights = 0;
+    const pool = applyFilters();
+    filters.sailFrom = savedFrom; filters.sailTo = savedTo; filters.minNights = savedMin;
+    const { rangeStart, rangeEnd, maxGap } = b2bState;
+    if (!rangeStart || !rangeEnd || rangeEnd < rangeStart) {
+      countEl.textContent = '';
+      res.innerHTML = '<div class="empty-state"><p>Set a vacation window to find back-to-back combinations.</p></div>';
+      return;
+    }
+    const chains = findB2BChains(pool, rangeStart, rangeEnd, maxGap, b2bState.samePort, b2bState.sameShip);
+    if (!chains.length) {
+      countEl.textContent = '';
+      res.innerHTML = '<div class="empty-state"><p>No combinations found — try widening your dates or increasing the max gap.</p></div>';
+      return;
+    }
+    const cap = chains.length === 100;
+    countEl.textContent = cap ? 'Showing top 100 combinations' : `${chains.length} combination${chains.length === 1 ? '' : 's'} found`;
+    res.innerHTML = '';
+    chains.forEach(chain => res.appendChild(buildChainCard(chain)));
+  }
+
+  function buildChainCard(chain) {
+    const wrap = document.createElement('div');
+    wrap.className = 'b2b-chain-card';
+    chain.legs.forEach((leg, i) => {
+      wrap.appendChild(buildCard(leg));
+      if (i < chain.legs.length - 1) {
+        const gap = chain.gaps[i];
+        const div = document.createElement('div');
+        div.className = 'b2b-gap-divider';
+        div.innerHTML = `
+          <div class="b2b-connector-line"></div>
+          <div class="b2b-connector-arrow">&#8595; ${gap === 0 ? 'same-day turnaround' : gap + '-day gap'}</div>
+          <div class="b2b-connector-line"></div>`;
+        wrap.appendChild(div);
+      }
+    });
+    const commonDots = [...(chain.commonProfiles || [])].map(pid => {
+      const p = profileById(pid);
+      return `<span class="profile-dot" style="background:${profileColor(pid)}" title="${esc(p?.name || pid)}"></span>`;
+    }).join('');
+    const bookableBy = profiles.length > 1 && commonDots
+      ? `<span class="b2b-bookable">Bookable by ${commonDots}</span>` : '';
+    const footer = document.createElement('div');
+    footer.className = 'b2b-chain-footer';
+    footer.innerHTML = `
+      <span class="card-nights">${chain.totalNights}n total</span>
+      ${chain.totalGapDays === 0
+        ? '<span class="badge badge-ok">True B2B</span>'
+        : `<span class="badge" style="border-color:var(--border);color:var(--muted)">${chain.totalGapDays} gap day${chain.totalGapDays === 1 ? '' : 's'}</span>`}
+      ${bookableBy}`;
+    wrap.appendChild(footer);
+    return wrap;
+  }
+
+  function findB2BChains(sailings, rangeStart, rangeEnd, maxGapDays, samePort, sameShip) {
+    const pool = sailings
+      .map(s => ({ s, ret: s.returnDate || isoAddDays(s.sailDate, s.nights || 0) }))
+      .filter(({ s, ret }) => s.sailDate >= rangeStart && ret <= rangeEnd)
+      .sort((a, b) => a.s.sailDate.localeCompare(b.s.sailDate));
+    if (!pool.length) return [];
+    const chainsEndingAt = pool.map(({ s }) => [{
+      legs: [s], gaps: [], totalGapDays: 0, totalNights: s.nights || 0,
+      offerIds: sailingOfferIds(s),
+      commonProfiles: new Set(s.matchProfileIds || []),
+    }]);
+    const result = [];
+    for (let i = 1; i < pool.length; i++) {
+      const { s: si } = pool[i];
+      const siOfferIds = sailingOfferIds(si);
+      for (let j = 0; j < i; j++) {
+        const gap = daysBetweenISO(pool[j].ret, si.sailDate);
+        if (gap < 0 || gap > maxGapDays) continue;
+        for (const prev of chainsEndingAt[j]) {
+          if (prev.legs.some(l => l.rcSailingId === si.rcSailingId)) continue;
+          if ([...siOfferIds].some(id => prev.offerIds.has(id))) continue;
+          const siProfiles = new Set(si.matchProfileIds || []);
+          const newCommon = new Set([...prev.commonProfiles].filter(pid => siProfiles.has(pid)));
+          if (newCommon.size === 0) continue;
+          if (samePort && si.departurePort !== prev.legs[0].departurePort) continue;
+          if (sameShip && si.ship !== prev.legs[0].ship) continue;
+          chainsEndingAt[i].push({
+            legs: [...prev.legs, si], gaps: [...prev.gaps, gap],
+            totalGapDays: prev.totalGapDays + gap,
+            totalNights: prev.totalNights + (si.nights || 0),
+            offerIds: new Set([...prev.offerIds, ...siOfferIds]),
+            commonProfiles: newCommon,
+          });
+        }
+      }
+      chainsEndingAt[i].forEach(c => { if (c.legs.length >= 2) result.push(c); });
+    }
+    result.sort((a, b) => a.totalGapDays !== b.totalGapDays ? a.totalGapDays - b.totalGapDays : a.totalNights - b.totalNights);
+    return result.slice(0, 100);
+  }
+
+  function sailingOfferIds(s) {
+    return new Set((s.matchProfileIds || []).map(pid => s.profiles?.[pid]?.offerId).filter(Boolean));
+  }
+
+  function daysBetweenISO(a, b) {
+    return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000);
+  }
+
+  function isoAddDays(iso, n) {
+    if (!iso) return '';
+    const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    dt.setUTCDate(dt.getUTCDate() + n);
+    return dt.toISOString().slice(0, 10);
+  }
 
   // ── No-data state ─────────────────────────────────────────────────────────
   function showNoData() {
