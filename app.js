@@ -465,17 +465,19 @@ import { loadData } from './db.js';
         const pdata = s.profiles?.[pid] || {};
         const offerId = pdata.offerId;
         if (!offerId) return;
-        if (!offerMap.has(offerId)) {
-          offerMap.set(offerId, {
-            offerId,
-            title: pdata.offer?.title || offerId,
+        const title = pdata.offer?.title || offerId;
+        if (!offerMap.has(title)) {
+          offerMap.set(title, {
+            title,
             bookByDate: pdata.offer?.bookByDate || null,
+            offerIds: new Set(),
             profiles: new Set(),
             sailingIds: new Set(),
             sailings: [],
           });
         }
-        const entry = offerMap.get(offerId);
+        const entry = offerMap.get(title);
+        entry.offerIds.add(offerId);
         entry.profiles.add(pid);
         if (!entry.sailingIds.has(s.rcSailingId)) {
           entry.sailingIds.add(s.rcSailingId);
@@ -514,7 +516,7 @@ import { loadData } from './db.js';
       <div class="offer-card-header">
         <div class="offer-card-left">
           <span class="offer-title">${esc(offer.title)}</span>
-          <span class="offer-code">${esc(offer.offerId)}</span>
+          ${[...offer.offerIds].map(id => `<span class="offer-code">${esc(id)}</span>`).join('')}
         </div>
         ${bbStr ? `<span class="offer-bookby${urgent ? ' urgent' : ''}">${bbStr}</span>` : ''}
       </div>
