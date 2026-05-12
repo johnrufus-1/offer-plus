@@ -453,11 +453,15 @@ body {
 .offer-card-left {
   display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0;
 }
-.offer-profile-name { font-weight: 600; white-space: nowrap; }
-.offer-title { font-size: 14px; }
+.offer-title { font-size: 14px; font-weight: 600; }
+.offer-code { font-size: 11px; color: var(--muted); font-family: ui-monospace, monospace; background: var(--panel2, #2a2a2a); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; }
 .offer-bookby { font-size: 12px; color: var(--muted); flex-shrink: 0; }
 .offer-bookby.urgent { color: #fca5a5; }
-.offer-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.offer-sub { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 6px; }
+.offer-profiles { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.offer-profile-chip { display: flex; align-items: center; gap: 3px; }
+.offer-profile-name { font-weight: 600; white-space: nowrap; }
+.offer-sailing-count { margin-left: auto; white-space: nowrap; }
 .offer-sailings { margin-top: 8px; }
 
 /* ── Empty / no-data states ── */

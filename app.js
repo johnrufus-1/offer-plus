@@ -465,16 +465,22 @@ import { loadData } from './db.js';
         const pdata = s.profiles?.[pid] || {};
         const offerId = pdata.offerId;
         if (!offerId) return;
-        const key = `${pid}:${offerId}`;
-        if (!offerMap.has(key)) {
-          offerMap.set(key, {
-            pid, offerId,
+        if (!offerMap.has(offerId)) {
+          offerMap.set(offerId, {
+            offerId,
             title: pdata.offer?.title || offerId,
             bookByDate: pdata.offer?.bookByDate || null,
+            profiles: new Set(),
+            sailingIds: new Set(),
             sailings: [],
           });
         }
-        offerMap.get(key).sailings.push(s);
+        const entry = offerMap.get(offerId);
+        entry.profiles.add(pid);
+        if (!entry.sailingIds.has(s.rcSailingId)) {
+          entry.sailingIds.add(s.rcSailingId);
+          entry.sailings.push(s);
+        }
       });
     });
     const offers = [...offerMap.values()].sort((a, b) => {
@@ -494,23 +500,28 @@ import { loadData } from './db.js';
   function buildOfferCard(offer) {
     const card = document.createElement('div');
     card.className = 'offer-card';
-    const p = profileById(offer.pid);
     const bbDays = offer.bookByDate ? daysUntil(offer.bookByDate) : null;
     const bbStr = offer.bookByDate
       ? `book by ${fmtShortDate(offer.bookByDate)}${bbDays !== null ? ' &middot; ' + (bbDays >= 0 ? bbDays + 'd' : 'expired') : ''}`
       : '';
     const urgent = bbDays !== null && bbDays >= 0 && bbDays <= 14;
+    const profileDots = [...offer.profiles].map(pid => {
+      const p = profileById(pid);
+      return `<span class="offer-profile-chip"><span class="profile-dot" style="background:${profileColor(pid)}"></span><span class="offer-profile-name" style="color:${profileColor(pid)}">${esc(p?.name || pid)}</span></span>`;
+    }).join('');
 
     card.innerHTML = `
       <div class="offer-card-header">
         <div class="offer-card-left">
-          <span class="profile-dot" style="background:${profileColor(offer.pid)}"></span>
-          <span class="offer-profile-name" style="color:${profileColor(offer.pid)}">${esc(p?.name || offer.pid)}</span>
           <span class="offer-title">${esc(offer.title)}</span>
+          <span class="offer-code">${esc(offer.offerId)}</span>
         </div>
         ${bbStr ? `<span class="offer-bookby${urgent ? ' urgent' : ''}">${bbStr}</span>` : ''}
       </div>
-      <div class="offer-sub">${offer.sailings.length} sailing${offer.sailings.length !== 1 ? 's' : ''}</div>
+      <div class="offer-sub">
+        <span class="offer-profiles">${profileDots}</span>
+        <span class="offer-sailing-count">${offer.sailings.length} sailing${offer.sailings.length !== 1 ? 's' : ''}</span>
+      </div>
       <div class="offer-sailings" hidden></div>
       <button class="card-expand-btn" aria-expanded="false">&#8250; sailings</button>
     `;
